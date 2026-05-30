@@ -2,7 +2,7 @@
  * E2E integration tests for AnimePaheProvider.
  *
  * These tests require FlareSolverr to be running at http://localhost:8191.
- * If FlareSolverr is not available, the tests are skipped automatically.
+ * If FlareSolverr is not available or Cloudflare blocks the request, the test fails.
  *
  * To run: docker compose up -d flaresolverr && npx vitest run tests/e2e/animepahe.test.ts
  */
@@ -11,6 +11,7 @@ import { DOMParser as LinkedDomParser } from 'linkedom';
 import { HttpClient } from '../../src/transport/http.js';
 import { FlareSolverrClient } from '../../src/transport/flaresolverr.js';
 import { AnimePaheProvider } from '../../src/providers/AnimePaheProvider.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
 
 beforeAll(() => {
   if (typeof globalThis.DOMParser === 'undefined') {
@@ -21,24 +22,18 @@ beforeAll(() => {
 describe('AnimePahe E2E (requires FlareSolverr)', () => {
   let flare: FlareSolverrClient;
   let provider: AnimePaheProvider;
-  let isAvailable = false;
 
   beforeAll(async () => {
     flare = new FlareSolverrClient({ url: 'http://localhost:8191', timeoutMs: 60000 });
-    isAvailable = await flare.isAvailable();
+    const isAvailable = await flare.isAvailable();
+    expect(isAvailable, 'FlareSolverr must be running at localhost:8191').toBe(true);
 
-    if (isAvailable) {
-      const http = new HttpClient();
-      provider = new AnimePaheProvider(http, { flaresolverr: flare });
-    } else {
-      console.warn('[SKIP] FlareSolverr not running at localhost:8191 — skipping AnimePahe E2E tests');
-    }
+    const http = new HttpClient();
+    provider = new AnimePaheProvider(http, { flaresolverr: flare });
   }, 10000);
 
   it('should search for anime', async () => {
-    if (!isAvailable) return;
-
-    const results = await provider.search('naruto');
+    const results = await provider.search('frieren');
     console.log(`AnimePahe search returned ${results.length} results`);
     expect(results.length).toBeGreaterThan(0);
 
@@ -51,9 +46,7 @@ describe('AnimePahe E2E (requires FlareSolverr)', () => {
   }, 60000);
 
   it('should fetch episode list with sub/dub filtering', async () => {
-    if (!isAvailable) return;
-
-    const results = await provider.search('naruto');
+    const results = await provider.search('frieren');
     expect(results.length).toBeGreaterThan(0);
 
     const anime = results[0];
@@ -70,9 +63,7 @@ describe('AnimePahe E2E (requires FlareSolverr)', () => {
   }, 120000);
 
   it('should resolve a stream URL for episode 1', async () => {
-    if (!isAvailable) return;
-
-    const results = await provider.search('one piece');
+    const results = await provider.search('frieren');
     expect(results.length).toBeGreaterThan(0);
 
     const anime = results[0];
@@ -90,6 +81,9 @@ describe('AnimePahe E2E (requires FlareSolverr)', () => {
       console.log(`  Stream URL: ${s.sourceUrl}`);
       expect(s.sourceUrl).toMatch(/https?:\/\/.+/);
       expect(s.language).toBe('sub');
+
+      // Capture screenshot using ffmpeg — throws on failure, causing the test to fail
+      await captureStreamScreenshot('animepahe', s.sourceUrl, s.headers || {});
     }
   }, 120000);
 });

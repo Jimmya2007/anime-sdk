@@ -1,7 +1,15 @@
+/**
+ * E2E integration tests for GoyabuProvider.
+ *
+ * These tests verify the Goyabu site is reachable. If the site is down, the test fails.
+ *
+ * To run: npx vitest run tests/e2e/goyabu.test.ts
+ */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DOMParser as LinkeDomParser } from 'linkedom';
 import { HttpClient } from '../../src/transport/http.js';
 import { GoyabuProvider } from '../../src/providers/GoyabuProvider.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
 
 beforeAll(() => {
   if (typeof globalThis.DOMParser === 'undefined') {
@@ -10,10 +18,24 @@ beforeAll(() => {
 });
 
 describe('Goyabu E2E Live Integration Test', () => {
-  it('should search, fetch content units, and resolve stream successfully', async () => {
-    const http = new HttpClient();
-    const provider = new GoyabuProvider(http);
+  let provider: GoyabuProvider;
 
+  beforeAll(async () => {
+    const http = new HttpClient();
+    provider = new GoyabuProvider(http);
+
+    // Verify site is reachable — fail hard if it's not
+    const res = await fetch('https://goyabu.io', {
+      method: 'HEAD',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(8000)
+    });
+    expect(res.status, `goyabu.io returned ${res.status} — site must be reachable`).toBeLessThan(500);
+  }, 15000);
+
+  it('should search, fetch content units, and resolve stream successfully', async () => {
     const query = 'Naruto';
     console.log(`Searching for "${query}" on Goyabu...`);
     const searchResults = await provider.search(query);
@@ -42,7 +64,7 @@ describe('Goyabu E2E Live Integration Test', () => {
 
       console.log(`Performing verification request to: ${stream.sourceUrl}`);
       const headers = stream.headers || {};
-      
+
       const streamRes = await fetch(stream.sourceUrl, {
         method: 'GET',
         headers: {
@@ -53,6 +75,9 @@ describe('Goyabu E2E Live Integration Test', () => {
 
       console.log(`Stream server responded with status: ${streamRes.status}`);
       expect([200, 206]).toContain(streamRes.status);
+
+      // Capture screenshot using ffmpeg — throws on failure, causing the test to fail
+      await captureStreamScreenshot('goyabu', stream.sourceUrl, headers);
     }
   }, 45000); // 45-second timeout
 });

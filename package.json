@@ -12,14 +12,9 @@
     "test:run": "vitest run"
   },
   "devDependencies": {
+    "@types/node": "^25.9.1",
     "linkedom": "^0.18.12",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
-  },
-  "dependencies": {
-    "puppeteer": "^25.1.0",
-    "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "puppeteer-real-browser": "^1.4.4"
   }
 }

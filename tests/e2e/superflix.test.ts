@@ -1,7 +1,17 @@
+/**
+ * E2E integration tests for SuperFlixProvider.
+ *
+ * These tests require FlareSolverr to be running at http://localhost:8191.
+ * If FlareSolverr is not available or Cloudflare blocks the request, the test fails.
+ *
+ * To run: docker compose up -d flaresolverr && npx vitest run tests/e2e/superflix.test.ts
+ */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DOMParser as LinkeDomParser } from 'linkedom';
 import { HttpClient } from '../../src/transport/http.js';
+import { FlareSolverrClient } from '../../src/transport/flaresolverr.js';
 import { SuperFlixProvider } from '../../src/providers/SuperFlixProvider.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
 
 beforeAll(() => {
   if (typeof globalThis.DOMParser === 'undefined') {
@@ -10,10 +20,19 @@ beforeAll(() => {
 });
 
 describe('SuperFlix E2E Live Integration Test', () => {
-  it('should search, fetch content units, and resolve stream successfully', async () => {
-    const http = new HttpClient();
-    const provider = new SuperFlixProvider(http);
+  let flare: FlareSolverrClient;
+  let provider: SuperFlixProvider;
 
+  beforeAll(async () => {
+    flare = new FlareSolverrClient({ url: 'http://localhost:8191', timeoutMs: 60000 });
+    const isAvailable = await flare.isAvailable();
+    expect(isAvailable, 'FlareSolverr must be running at localhost:8191').toBe(true);
+
+    const http = new HttpClient();
+    provider = new SuperFlixProvider(http, { flaresolverr: flare });
+  }, 10000);
+
+  it('should search successfully', async () => {
     const query = 'Naruto';
     console.log(`Searching for "${query}" on SuperFlix...`);
     const searchResults = await provider.search(query);
@@ -22,14 +41,32 @@ describe('SuperFlix E2E Live Integration Test', () => {
     const firstResult = searchResults[0];
     console.log(`Found result: ${firstResult.title} (${firstResult.id})`);
     expect(firstResult.providerId).toBe('superflix');
+  }, 30000);
 
+  it('should fetch content units successfully', async () => {
+    const query = 'Naruto';
+    const searchResults = await provider.search(query);
+    expect(searchResults.length).toBeGreaterThan(0);
+
+    const firstResult = searchResults[0];
     console.log(`Fetching content units for: ${firstResult.id}`);
     const units = await provider.fetchContentUnits(firstResult.id);
     expect(units.length).toBeGreaterThan(0);
 
     const firstUnit = units[0];
     console.log(`First content unit: ${firstUnit.title} (${firstUnit.id})`);
+  }, 30000);
 
+  it('should resolve stream successfully (requires FlareSolverr)', async () => {
+    const query = 'Naruto';
+    const searchResults = await provider.search(query);
+    expect(searchResults.length).toBeGreaterThan(0);
+
+    const firstResult = searchResults[0];
+    const units = await provider.fetchContentUnits(firstResult.id);
+    expect(units.length).toBeGreaterThan(0);
+
+    const firstUnit = units[0];
     console.log(`Resolving stream for content unit: ${firstUnit.id}`);
     const streamPayload = await provider.resolveStream(firstUnit.id);
 
@@ -66,6 +103,9 @@ describe('SuperFlix E2E Live Integration Test', () => {
 
       console.log(`Stream server responded with status: ${streamRes.status}`);
       expect([200, 206]).toContain(streamRes.status);
+
+      // Capture screenshot using ffmpeg — throws on failure, causing the test to fail
+      await captureStreamScreenshot('superflix', stream.sourceUrl, headers);
     }
-  }, 90000); // 90-second timeout for live scraper + browser launch
+  }, 120000); // 120-second timeout for live scraper + browser solve
 });

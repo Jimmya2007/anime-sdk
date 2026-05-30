@@ -1,6 +1,7 @@
 import { BaseProvider } from './BaseProvider.js';
 import { HttpClient } from '../transport/http.js';
 import { DomRegistry } from '../transport/dom.js';
+import { FlareSolverrClient } from '../transport/flaresolverr.js';
 import {
   IMediaSearchResult,
   IContentUnit,
@@ -11,23 +12,42 @@ import {
 
 export interface AnimefireOptions {
   baseUrl?: string;
+  flaresolverr?: FlareSolverrClient;
 }
 
 export class AnimefireProvider extends BaseProvider {
   public readonly id = 'animefire';
   public readonly supportedTypes: MediaCatalogType[] = ['ANIME'];
   private baseUrl = 'https://animefire.plus';
+  private readonly flare?: FlareSolverrClient;
 
   constructor(http: HttpClient, options: AnimefireOptions = {}) {
     super(http);
     if (options.baseUrl) {
       this.baseUrl = options.baseUrl;
     }
+    this.flare = options.flaresolverr;
     // Set a default User-Agent if none exists
     if (!this.http.getDefaultHeaders()['User-Agent']) {
       this.http.setUserAgent(
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       );
+    }
+  }
+
+  private async fetchText(url: string, headers: Record<string, string> = {}): Promise<{ status: number; text: string }> {
+    if (this.flare) {
+      const res = await this.flare.get(url, { headers });
+      return {
+        status: res.status,
+        text: res.text(),
+      };
+    } else {
+      const res = await this.http.get(url, { headers });
+      return {
+        status: res.status,
+        text: await res.text(),
+      };
     }
   }
 
@@ -40,12 +60,12 @@ export class AnimefireProvider extends BaseProvider {
     const querySlug = query.trim().toLowerCase().replace(/\s+/g, '-');
     const searchUrl = `${this.baseUrl}/pesquisar/${encodeURIComponent(querySlug)}`;
 
-    const response = await this.http.get(searchUrl);
-    if (response.status !== 200) {
-      throw new Error(`AnimeFire search failed with status ${response.status}`);
+    const { status, text } = await this.fetchText(searchUrl);
+    if (status !== 200) {
+      throw new Error(`AnimeFire search failed with status ${status}`);
     }
 
-    const html = await response.text();
+    const html = text;
     const doc = DomRegistry.parse(html);
     const results: IMediaSearchResult[] = [];
 
@@ -109,12 +129,12 @@ export class AnimefireProvider extends BaseProvider {
    */
   public async fetchContentUnits(mediaId: string, _language?: import('../types/index.js').ContentLanguage): Promise<IContentUnit[]> {
     const fullUrl = `${this.baseUrl}${mediaId.startsWith('/') ? '' : '/'}${mediaId}`;
-    const response = await this.http.get(fullUrl);
-    if (response.status !== 200) {
-      throw new Error(`Failed to fetch AnimeFire details page: ${response.status}`);
+    const { status, text } = await this.fetchText(fullUrl);
+    if (status !== 200) {
+      throw new Error(`Failed to fetch AnimeFire details page: ${status}`);
     }
 
-    const html = await response.text();
+    const html = text;
     const doc = DomRegistry.parse(html);
     const anchors = doc.querySelectorAll('a.lEp');
 
@@ -147,12 +167,12 @@ export class AnimefireProvider extends BaseProvider {
    */
   public async resolveStream(unitId: string, _language?: import('../types/index.js').ContentLanguage): Promise<ResolvedMediaStream> {
     const fullUrl = `${this.baseUrl}${unitId.startsWith('/') ? '' : '/'}${unitId}`;
-    const response = await this.http.get(fullUrl);
-    if (response.status !== 200) {
-      throw new Error(`Failed to fetch AnimeFire episode page: ${response.status}`);
+    const { status, text } = await this.fetchText(fullUrl);
+    if (status !== 200) {
+      throw new Error(`Failed to fetch AnimeFire episode page: ${status}`);
     }
 
-    const html = await response.text();
+    const html = text;
     const doc = DomRegistry.parse(html);
     const videoSources: IVideoPayload[] = [];
 

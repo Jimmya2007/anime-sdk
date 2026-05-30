@@ -3,6 +3,7 @@ export interface HttpClientConfig {
   proxyType?: 'prepend' | 'query';
   proxyQueryParam?: string;
   defaultHeaders?: Record<string, string>;
+  timeoutMs?: number;
 }
 
 export class HttpClient {
@@ -10,12 +11,14 @@ export class HttpClient {
   private proxyType: 'prepend' | 'query';
   private proxyQueryParam: string;
   private defaultHeaders: Record<string, string>;
+  private timeoutMs: number;
 
   constructor(config: HttpClientConfig = {}) {
     this.proxyUrl = config.proxyUrl;
     this.proxyType = config.proxyType || 'prepend';
     this.proxyQueryParam = config.proxyQueryParam || 'url';
     this.defaultHeaders = config.defaultHeaders || {};
+    this.timeoutMs = config.timeoutMs || 10000;
   }
 
   public getProxyUrl(): string | undefined {
@@ -68,7 +71,7 @@ export class HttpClient {
     }
 
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), 4000);
+    const id = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
       const res = await fetch(targetUrl, { ...options, headers, signal: controller.signal });
@@ -246,24 +249,4 @@ export class HttpClient {
     this.defaultHeaders['User-Agent'] = userAgent;
   }
 
-  /**
-   * Solves a Cloudflare challenge for the target URL and injects the resulting cookies/UA.
-   */
-  public async solveChallenge(url: string, options: any = {}): Promise<string> {
-    const { solveCloudflare } = await import('./stealthSolver.js');
-    const result = await solveCloudflare(url, {
-      userAgent: this.defaultHeaders['User-Agent'],
-      ...options,
-    });
-
-    for (const cookie of result.cookies) {
-      this.setCookie(cookie.name, cookie.value);
-    }
-
-    if (result.userAgent) {
-      this.setUserAgent(result.userAgent);
-    }
-
-    return result.html;
-  }
 }

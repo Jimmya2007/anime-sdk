@@ -1,7 +1,17 @@
+/**
+ * E2E integration tests for AnimefireProvider.
+ *
+ * These tests require FlareSolverr to be running at http://localhost:8191.
+ * If FlareSolverr is not available or Cloudflare blocks the request, the test fails.
+ *
+ * To run: docker compose up -d flaresolverr && npx vitest run tests/e2e/animefire.test.ts
+ */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DOMParser as LinkeDomParser } from 'linkedom';
 import { HttpClient } from '../../src/transport/http.js';
+import { FlareSolverrClient } from '../../src/transport/flaresolverr.js';
 import { AnimefireProvider } from '../../src/providers/AnimefireProvider.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
 
 beforeAll(() => {
   if (typeof globalThis.DOMParser === 'undefined') {
@@ -10,10 +20,19 @@ beforeAll(() => {
 });
 
 describe('AnimeFire E2E Live Integration Test', () => {
-  it.skip('should search, fetch content units, and resolve stream successfully', async () => {
-    const http = new HttpClient();
-    const provider = new AnimefireProvider(http);
+  let flare: FlareSolverrClient;
+  let provider: AnimefireProvider;
 
+  beforeAll(async () => {
+    flare = new FlareSolverrClient({ url: 'http://localhost:8191', timeoutMs: 60000 });
+    const isAvailable = await flare.isAvailable();
+    expect(isAvailable, 'FlareSolverr must be running at localhost:8191').toBe(true);
+
+    const http = new HttpClient();
+    provider = new AnimefireProvider(http, { flaresolverr: flare });
+  }, 10000);
+
+  it('should search, fetch content units, and resolve stream successfully', async () => {
     const query = 'Frieren';
     console.log(`Searching for "${query}" on AnimeFire...`);
     const searchResults = await provider.search(query);
@@ -42,7 +61,7 @@ describe('AnimeFire E2E Live Integration Test', () => {
 
       console.log(`Performing verification request to: ${stream.sourceUrl}`);
       const headers = stream.headers || {};
-      
+
       const streamRes = await fetch(stream.sourceUrl, {
         method: 'GET',
         headers: {
@@ -53,6 +72,9 @@ describe('AnimeFire E2E Live Integration Test', () => {
 
       console.log(`Stream server responded with status: ${streamRes.status}`);
       expect([200, 206]).toContain(streamRes.status);
+
+      // Capture screenshot using ffmpeg — throws on failure, causing the test to fail
+      await captureStreamScreenshot('animefire', stream.sourceUrl, headers);
     }
-  }, 30000); // 30-second timeout
+  }, 90000); // 90-second timeout
 });

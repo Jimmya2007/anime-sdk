@@ -78,13 +78,13 @@ export class FlareSolverrClient {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 5000);
 
-      const res = await fetch(`${this.baseUrl}/v1`, {
+      const res = await fetch(`${this.baseUrl}/`, {
         method: 'GET',
         signal: controller.signal,
       });
       clearTimeout(timer);
 
-      return res.ok;
+      return res.ok || res.status === 405;
     } catch {
       return false;
     }
@@ -145,6 +145,10 @@ export class FlareSolverrClient {
       body.cookies = options.cookies;
     }
 
+    if (options.headers && Object.keys(options.headers).length > 0) {
+      body.headers = options.headers;
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
@@ -185,7 +189,19 @@ export class FlareSolverrClient {
       text: () => responseText,
       json: () => {
         try {
-          return JSON.parse(responseText);
+          let trimmed = responseText.trim();
+          if (trimmed.startsWith('<')) {
+            const preMatch = trimmed.match(/<pre[^>]*>([\s\S]*?)<\/pre>/i);
+            if (preMatch) {
+              trimmed = preMatch[1]
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#039;/g, "'");
+            }
+          }
+          return JSON.parse(trimmed);
         } catch (e) {
           throw new Error(`FlareSolverrResponse.json(): Body is not valid JSON: ${(e as Error).message}`);
         }

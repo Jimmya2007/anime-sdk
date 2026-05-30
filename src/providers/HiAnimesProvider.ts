@@ -72,10 +72,9 @@ export class HiAnimesProvider extends BaseProvider {
    */
   private async ajaxGet(path: string): Promise<any> {
     const url = `${this.baseUrl}${path}`;
-    const res = await this.flare.get(url, {});
-    const text = res.text();
     try {
-      return JSON.parse(text);
+      const res = await this.flare.get(url, {});
+      return res.json();
     } catch {
       return null;
     }

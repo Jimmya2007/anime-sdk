@@ -105,12 +105,11 @@ export class AnimePaheProvider extends BaseProvider {
     const res = await this.flare.get(url, {
       cookies: this.sessionCookies.length > 0 ? this.sessionCookies : undefined,
     });
-    const text = res.text();
     return {
       status: res.status,
-      text,
+      text: res.text(),
       json: () => {
-        try { return JSON.parse(text); } catch { return null; }
+        try { return res.json(); } catch { return null; }
       },
     };
   }

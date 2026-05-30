@@ -1,7 +1,13 @@
+/**
+ * E2E integration tests for AllmangaProvider.
+ *
+ * To run: npx vitest run tests/e2e/allmanga.test.ts
+ */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DOMParser as LinkeDomParser } from 'linkedom';
 import { HttpClient } from '../../src/transport/http.js';
 import { AllmangaProvider } from '../../src/providers/AllmangaProvider.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
 
 beforeAll(() => {
   if (typeof globalThis.DOMParser === 'undefined') {
@@ -40,23 +46,20 @@ describe('AllManga E2E Live Integration Test', () => {
       console.log(`Resolved stream URL: ${stream.sourceUrl}`);
       expect(stream.sourceUrl).toBeTruthy();
 
-      const isDirectStream = stream.sourceUrl.includes('.mp4') || stream.sourceUrl.includes('.m3u8') || stream.sourceUrl.includes('wixstatic.com');
-      if (isDirectStream) {
-        console.log(`Performing verification request to: ${stream.sourceUrl}`);
-        const headers = stream.headers || {};
-        const streamRes = await fetch(stream.sourceUrl, {
-          method: 'GET',
-          headers: {
-            ...headers,
-            Range: 'bytes=0-1024',
-          },
-        });
-        console.log(`Stream server responded with status: ${streamRes.status}`);
-        expect([200, 206]).toContain(streamRes.status);
-      } else {
-        console.log(`Skipping E2E range-GET verification for third-party embed URL: ${stream.sourceUrl}`);
-        expect(stream.sourceUrl).toBeTruthy();
-      }
+      console.log(`Performing verification request to: ${stream.sourceUrl}`);
+      const headers = stream.headers || {};
+      const streamRes = await fetch(stream.sourceUrl, {
+        method: 'GET',
+        headers: {
+          ...headers,
+          Range: 'bytes=0-1024',
+        },
+      });
+      console.log(`Stream server responded with status: ${streamRes.status}`);
+      expect([200, 206]).toContain(streamRes.status);
+
+      // Capture screenshot using ffmpeg — throws on failure, causing the test to fail
+      await captureStreamScreenshot('allmanga', stream.sourceUrl, headers);
     }
   }, 45000); // 45-second timeout
 });

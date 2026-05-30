@@ -1,6 +1,7 @@
 import { BaseProvider } from './BaseProvider.js';
 import { HttpClient } from '../transport/http.js';
 import { DomRegistry } from '../transport/dom.js';
+import { FlareSolverrClient } from '../transport/flaresolverr.js';
 import {
   IMediaSearchResult,
   IContentUnit,
@@ -14,13 +15,23 @@ export interface SuperFlixEpisode {
   air_date: string;
 }
 
+export interface SuperFlixOptions {
+  baseUrl?: string;
+  flaresolverr?: FlareSolverrClient;
+}
+
 export class SuperFlixProvider extends BaseProvider {
   public readonly id = 'superflix';
   public readonly supportedTypes: MediaCatalogType[] = ['MOVIE', 'TV', 'ANIME'];
-  private readonly defaultBaseUrl = 'https://superflixapi.best';
+  private defaultBaseUrl: string = 'https://superflixapi.best';
+  private readonly flare?: FlareSolverrClient;
 
-  constructor(http: HttpClient) {
+  constructor(http: HttpClient, options: SuperFlixOptions = {}) {
     super(http);
+    if (options.baseUrl) {
+      this.defaultBaseUrl = options.baseUrl;
+    }
+    this.flare = options.flaresolverr;
     // Inject default user-agent if not already configured
     if (!this.http.getDefaultHeaders()['User-Agent']) {
       this.http.setUserAgent(
@@ -290,79 +301,50 @@ export class SuperFlixProvider extends BaseProvider {
     }
 
     let html = await response.text();
+    const hasTokens = html.includes('PAGE_TOKEN') && html.includes('INITIAL_CONTENT_ID');
     const isRestricted = html.includes('Visualização Externa') || html.includes('Acesso Restrito') || html.includes('embedCode');
 
     if (
-      isRestricted ||
-      html.includes('cloudflare') ||
-      html.includes('captcha') ||
-      html.includes('Verificação') ||
-      html.includes('cf-challenge')
+      !hasTokens && (
+        isRestricted ||
+        html.includes('cloudflare') ||
+        html.includes('captcha') ||
+        html.includes('Verificação') ||
+        html.includes('cf-challenge') ||
+        response.status === 403 ||
+        response.status === 503
+      )
     ) {
-      console.log('SuperFlixProvider: Restricted access or Cloudflare detected. Activating Stealth Solver...');
-      html = await this.http.solveChallenge(playerPageUrl, {
-        automation: async (page: any, browser: any) => {
-          const initHtml = await page.content();
-          
-          console.log(`Provider Automation: Extracting partner URL...`);
-          let partnerUrl = '';
-          const match1 = initHtml.match(/<a\s+[^>]*href="([^"]+)"[^>]*>[\s\S]*?Visualizar[\s\S]*?<\/a>/i);
-          if (match1) {
-            partnerUrl = match1[1];
-          } else {
-            const match2 = initHtml.match(/href="([^"]+)"[^>]*class="[^"]*btn-outline/i);
-            if (match2) {
-              partnerUrl = match2[1];
-            }
-          }
+      if (!this.flare) {
+        throw new Error(
+          'SuperFlix requires FlareSolverr to bypass Cloudflare/Turnstile protection. Please configure FlareSolverrClient in SuperFlixProvider options.'
+        );
+      }
 
-          if (!partnerUrl) {
-            throw new Error("Could not find partner Visualizar link in initial HTML.");
-          }
+      console.log('SuperFlixProvider: Restricted access or Cloudflare detected. Activating FlareSolverr...');
 
-          try {
-            console.log(`Provider Automation: Navigating to partner URL: ${partnerUrl}...`);
-            await page.goto(partnerUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-          } catch (e: any) {
-            console.log(`Provider Automation: Navigation threw error (proceeding anyway): ${e.message}`);
-          }
-          
-          console.log("Provider Automation: Clicking fake player play button...");
-          await page.waitForSelector('#movie-fake-player-btn', { timeout: 15000 });
-          await page.click('#movie-fake-player-btn');
-          
-          console.log("Provider Automation: Clicking superflixapi.best source button...");
-          await page.waitForSelector('button[data-api="superflixapi.best"]', { timeout: 15000 });
-          await page.click('button[data-api="superflixapi.best"]');
-          
-          console.log("Provider Automation: Waiting for embed iframe to load and populate...");
-          let iframeContent = '';
-          let retries = 30; // 15 seconds max
-          while (retries > 0) {
-            const frames = page.frames();
-            const targetFrame = frames.find((f: any) => f.url().includes('superflixapi.best'));
-            if (targetFrame) {
-              try {
-                const content = await targetFrame.content();
-                if (content.includes('PAGE_TOKEN') && content.includes('INITIAL_CONTENT_ID')) {
-                  iframeContent = content;
-                  break;
-                }
-              } catch (e) {
-                // ignore
-              }
-            }
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            retries--;
-          }
-
-          if (!iframeContent) {
-            throw new Error("Timeout waiting for player tokens inside iframe.");
-          }
-
-          return { html: iframeContent };
-        }
+      // 1. Solve Turnstile on the initial page to get cookies and the Acesso Restrito page HTML
+      const solvedPageRes = await this.flare.get(playerPageUrl, {
+        headers: { Referer: 'https://redecanais.buzz/' },
       });
+
+      const solvedPageHtml = solvedPageRes.text();
+
+      // 2. Extract Turnstile iframe URL
+      const embedCodeMatch = solvedPageHtml.match(/id="embedCode"[^>]*>&lt;iframe\s+[^>]*src="([^"]+)"/i);
+      if (!embedCodeMatch) {
+        throw new Error('SuperFlix: Could not find Turnstile iframe source URL in the solved page.');
+      }
+
+      const rawIframeUrl = embedCodeMatch[1];
+      const iframeUrl = rawIframeUrl.replace(/&amp;/g, '&');
+
+      // 3. Resolve the Turnstile iframe via FlareSolverr
+      const solvedIframeRes = await this.flare.get(iframeUrl, {
+        headers: { Referer: playerPageUrl },
+      });
+
+      html = solvedIframeRes.text();
     }
 
     const csrfMatch = html.match(/var CSRF_TOKEN\s*=\s*"([^"]*)"/);
@@ -370,39 +352,54 @@ export class SuperFlixProvider extends BaseProvider {
     const contentIdMatch = html.match(/var INITIAL_CONTENT_ID\s*=\s*(\d+)/);
     const contentTypeMatch = html.match(/var CONTENT_TYPE\s*=\s*"([^"]+)"/);
 
-    if (!csrfMatch || !pageTokenMatch || !contentIdMatch || !contentTypeMatch) {
+    if (!pageTokenMatch || !contentIdMatch || !contentTypeMatch) {
       throw new Error('Failed to extract tokens from player page HTML');
     }
 
-    const csrf = csrfMatch[1];
+    const csrf = csrfMatch ? csrfMatch[1] : '';
     const pageToken = pageTokenMatch[1];
     const contentId = contentIdMatch[1];
     const contentType = contentTypeMatch[1];
 
     // 1. Call bootstrap
     const bootstrapUrl = `${this.baseUrl}/player/bootstrap`;
-    const formParams = new URLSearchParams({
+    const formParams = {
       contentid: contentId,
       type: contentType,
+      season: sfType === 'serie' ? parts[2] : '1',
+      episode: sfType === 'serie' ? parts[3] : '',
       _token: csrf,
       page_token: pageToken,
       pageToken: pageToken,
-    });
+    };
 
-    const bootstrapResponse = await this.http.post(bootstrapUrl, formParams, {
-      headers: {
-        Referer: `${this.baseUrl}/`,
-        'X-Page-Token': pageToken,
-        'X-Requested-With': 'XMLHttpRequest',
-        Origin: this.baseUrl,
-      },
-    });
-
-    if (bootstrapResponse.status !== 200) {
-      throw new Error(`Bootstrap failed with status ${bootstrapResponse.status}`);
+    let bootstrapJson: any;
+    if (this.flare) {
+      const res = await this.flare.post(bootstrapUrl, formParams, {
+        headers: {
+          Referer: playerPageUrl,
+          'X-Page-Token': pageToken,
+          'X-Requested-With': 'XMLHttpRequest',
+          Origin: this.baseUrl,
+        },
+      });
+      bootstrapJson = res.json();
+    } else {
+      const formParamsUrl = new URLSearchParams(formParams);
+      const bootstrapResponse = await this.http.post(bootstrapUrl, formParamsUrl, {
+        headers: {
+          Referer: `${this.baseUrl}/`,
+          'X-Page-Token': pageToken,
+          'X-Requested-With': 'XMLHttpRequest',
+          Origin: this.baseUrl,
+        },
+      });
+      if (bootstrapResponse.status !== 200) {
+        throw new Error(`Bootstrap failed with status ${bootstrapResponse.status}`);
+      }
+      bootstrapJson = await bootstrapResponse.json();
     }
 
-    const bootstrapJson = await bootstrapResponse.json();
     const options = bootstrapJson.data?.options || [];
     if (options.length === 0) {
       throw new Error('No streaming servers available for this content');
@@ -427,89 +424,78 @@ export class SuperFlixProvider extends BaseProvider {
 
     // 2. Call source
     const sourceUrl = `${this.baseUrl}/player/source`;
-    const sourceParams = new URLSearchParams({
+    const sourceParams = {
       video_id: videoId,
       page_token: pageToken,
       host: '',
       site: '',
       _token: csrf,
-    });
+    };
 
-    const sourceResponse = await this.http.post(sourceUrl, sourceParams, {
-      headers: {
-        Referer: `${this.baseUrl}/`,
-        'X-Page-Token': pageToken,
-        'X-Requested-With': 'XMLHttpRequest',
-        Origin: this.baseUrl,
-      },
-    });
-
-    if (sourceResponse.status !== 200) {
-      throw new Error(`Source API failed with status ${sourceResponse.status}`);
+    let sourceJson: any;
+    if (this.flare) {
+      const res = await this.flare.post(sourceUrl, sourceParams, {
+        headers: {
+          Referer: playerPageUrl,
+          'X-Page-Token': pageToken,
+          'X-Requested-With': 'XMLHttpRequest',
+          Origin: this.baseUrl,
+        },
+      });
+      sourceJson = res.json();
+    } else {
+      const sourceResponse = await this.http.post(sourceUrl, new URLSearchParams(sourceParams), {
+        headers: {
+          Referer: `${this.baseUrl}/`,
+          'X-Page-Token': pageToken,
+          'X-Requested-With': 'XMLHttpRequest',
+          Origin: this.baseUrl,
+        },
+      });
+      if (sourceResponse.status !== 200) {
+        throw new Error(`Source API failed with status ${sourceResponse.status}`);
+      }
+      sourceJson = await sourceResponse.json();
     }
 
-    const sourceJson = await sourceResponse.json();
     const videoRedirectUrl = sourceJson.data?.video_url;
     if (!videoRedirectUrl) {
       throw new Error('No video redirect URL found in source response');
     }
-    console.log(`[DEBUG] videoRedirectUrl: ${videoRedirectUrl}`);
+
     // 3. Resolve redirect to the external player
-    const redirectRes = await this.http.get(videoRedirectUrl, {
-      redirect: 'follow',
-      headers: { Referer: `${this.baseUrl}/` },
-    });
-
-    const finalPlayerUrl = redirectRes.url;
-    console.log(`[DEBUG] finalPlayerUrl: ${finalPlayerUrl}`);
-    const playerHtml = await redirectRes.text();
-
-    let playerBaseUrl = '';
-    let videoHash = '';
-
-    if (finalPlayerUrl.includes('/video/')) {
-      const parts = finalPlayerUrl.split('/video/');
-      playerBaseUrl = parts[0];
-      videoHash = parts[1].split(/[?#]/)[0];
+    let playerHtml = '';
+    if (this.flare) {
+      const res = await this.flare.get(videoRedirectUrl, {
+        headers: { Referer: playerPageUrl },
+      });
+      playerHtml = res.text();
     } else {
-      const lastSlash = finalPlayerUrl.lastIndexOf('/');
-      if (lastSlash > 0) {
-        playerBaseUrl = finalPlayerUrl.substring(0, lastSlash);
-        videoHash = finalPlayerUrl.substring(lastSlash + 1).split(/[?#]/)[0];
-      }
+      const redirectRes = await this.http.get(videoRedirectUrl, {
+        redirect: 'follow',
+        headers: { Referer: `${this.baseUrl}/` },
+      });
+      playerHtml = await redirectRes.text();
     }
 
-    console.log(`[DEBUG] playerBaseUrl: ${playerBaseUrl}, videoHash: ${videoHash}`);
-    if (!playerBaseUrl || !videoHash) {
-      throw new Error(`Failed to parse external player URL: ${finalPlayerUrl}`);
+    // 4. Extract SOURCES variable
+    const sourcesMatch = playerHtml.match(/var SOURCES\s*=\s*(\[.+?\]);/);
+    if (!sourcesMatch) {
+      throw new Error('Failed to parse sources from player HTML');
     }
 
-    // 4. Call external player video API
-    const apiURL = `${playerBaseUrl}/player/index.php?data=${videoHash}&do=getVideo`;
-    console.log(`[DEBUG] apiURL: ${apiURL}`);
-    const apiParams = new URLSearchParams({
-      hash: videoHash,
-      r: `${this.baseUrl}/`,
-    });
-
-    const apiResponse = await this.http.post(apiURL, apiParams, {
-      headers: {
-        Referer: `${playerBaseUrl}/video/${videoHash}`,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    });
-
-    if (apiResponse.status !== 200) {
-      throw new Error(`External player API failed with status ${apiResponse.status}`);
+    let parsedSources: any[] = [];
+    try {
+      parsedSources = JSON.parse(sourcesMatch[1]);
+    } catch (e) {
+      throw new Error(`Failed to parse SOURCES JSON: ${(e as Error).message}`);
     }
 
-    const apiJson = await apiResponse.json();
-    const rawStreamUrl = apiJson.securedLink || apiJson.videoSource;
-
-    if (!rawStreamUrl) {
-      throw new Error('No stream URL returned from external player API');
+    if (parsedSources.length === 0 || !parsedSources[0].src) {
+      throw new Error('No valid video stream source found in player page');
     }
 
+    const rawStreamUrl = parsedSources[0].src;
     const isHLS = rawStreamUrl.includes('.m3u8');
     const quality = 'auto';
 
@@ -521,7 +507,7 @@ export class SuperFlixProvider extends BaseProvider {
           isHLS,
           quality,
           headers: {
-            Referer: `${playerBaseUrl}/`,
+            Referer: `${this.baseUrl}/`,
             'User-Agent':
               this.http.getDefaultHeaders()['User-Agent'] ||
               'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

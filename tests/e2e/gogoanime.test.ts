@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { DOMParser as LinkeDomParser } from 'linkedom';
 import { HttpClient } from '../../src/transport/http.js';
 import { GogoanimeProvider } from '../../src/providers/GogoanimeProvider.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
 
 beforeAll(() => {
   if (typeof globalThis.DOMParser === 'undefined') {
@@ -53,6 +54,9 @@ describe('GogoAnime E2E Live Integration Test', () => {
 
       console.log(`Stream server responded with status: ${streamRes.status}`);
       expect([200, 206]).toContain(streamRes.status);
+
+      // Capture screenshot using ffmpeg
+      await captureStreamScreenshot('gogoanime', stream.sourceUrl, headers);
     }
-  }, 30000); // 30-second timeout
+  }, 45000); // 45-second timeout
 });

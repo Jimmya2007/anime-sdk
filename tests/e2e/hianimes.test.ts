@@ -2,7 +2,7 @@
  * E2E integration tests for HiAnimesProvider.
  *
  * These tests require FlareSolverr to be running at http://localhost:8191.
- * If FlareSolverr is not available, the tests are skipped automatically.
+ * If FlareSolverr is not available or Cloudflare blocks the request, the test fails.
  *
  * To run: docker compose up -d flaresolverr && npx vitest run tests/e2e/hianimes.test.ts
  */
@@ -11,6 +11,7 @@ import { DOMParser as LinkedDomParser } from 'linkedom';
 import { HttpClient } from '../../src/transport/http.js';
 import { FlareSolverrClient } from '../../src/transport/flaresolverr.js';
 import { HiAnimesProvider } from '../../src/providers/HiAnimesProvider.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
 
 beforeAll(() => {
   if (typeof globalThis.DOMParser === 'undefined') {
@@ -21,23 +22,17 @@ beforeAll(() => {
 describe('HiAnimes E2E (requires FlareSolverr)', () => {
   let flare: FlareSolverrClient;
   let provider: HiAnimesProvider;
-  let isAvailable = false;
 
   beforeAll(async () => {
     flare = new FlareSolverrClient({ url: 'http://localhost:8191', timeoutMs: 60000 });
-    isAvailable = await flare.isAvailable();
+    const isAvailable = await flare.isAvailable();
+    expect(isAvailable, 'FlareSolverr must be running at localhost:8191').toBe(true);
 
-    if (isAvailable) {
-      const http = new HttpClient();
-      provider = new HiAnimesProvider(http, { flaresolverr: flare });
-    } else {
-      console.warn('[SKIP] FlareSolverr not running at localhost:8191 — skipping HiAnimes E2E tests');
-    }
+    const http = new HttpClient();
+    provider = new HiAnimesProvider(http, { flaresolverr: flare });
   }, 10000);
 
   it('should search for anime', async () => {
-    if (!isAvailable) return;
-
     const results = await provider.search('naruto');
     console.log(`HiAnimes search returned ${results.length} results`);
     expect(results.length).toBeGreaterThan(0);
@@ -51,8 +46,6 @@ describe('HiAnimes E2E (requires FlareSolverr)', () => {
   }, 60000);
 
   it('should fetch episode list', async () => {
-    if (!isAvailable) return;
-
     const results = await provider.search('one piece');
     expect(results.length).toBeGreaterThan(0);
 
@@ -70,8 +63,6 @@ describe('HiAnimes E2E (requires FlareSolverr)', () => {
   }, 90000);
 
   it('should resolve a stream URL', async () => {
-    if (!isAvailable) return;
-
     const results = await provider.search('attack on titan');
     expect(results.length).toBeGreaterThan(0);
 
@@ -89,6 +80,9 @@ describe('HiAnimes E2E (requires FlareSolverr)', () => {
       const s = stream.streams[0];
       console.log(`  Stream URL: ${s.sourceUrl}`);
       expect(s.sourceUrl).toMatch(/https?:\/\/.+/);
+
+      // Capture screenshot using ffmpeg — throws on failure, causing the test to fail
+      await captureStreamScreenshot('hianimes', s.sourceUrl, s.headers || {});
     }
   }, 120000);
 });
