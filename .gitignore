@@ -1,6 +1,5 @@
 node_modules/
 dist/
 references/
-scratch/
 .DS_Store
 *.log
