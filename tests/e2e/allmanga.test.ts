@@ -15,51 +15,43 @@ beforeAll(() => {
   }
 });
 
-describe('AllManga E2E Live Integration Test', () => {
-  it('should search, fetch content units, and resolve stream successfully', async () => {
-    const http = new HttpClient();
+describe('AllManga E2E', () => {
+  it('searches, fetches episodes, resolves a stream, and captures a screenshot', async () => {
+    const http = new HttpClient({ timeoutMs: 25000 });
     const provider = new AllmangaProvider(http);
 
-    const query = 'Naruto';
-    console.log(`Searching for "${query}" on AllManga...`);
+    // Pick a long-running show with a robust source mix.
+    const query = 'Frieren';
     const searchResults = await provider.search(query);
     expect(searchResults.length).toBeGreaterThan(0);
 
-    const firstResult = searchResults[0];
-    console.log(`Found result: ${firstResult.title} (${firstResult.id})`);
-    expect(firstResult.providerId).toBe('allmanga');
+    // Prefer the mainline "Beyond Journey's End" so we don't end up on a
+    // promo short with no sources.
+    const target =
+      searchResults.find((r) =>
+        r.title.toLowerCase().includes("beyond journey's end") &&
+        !r.title.toLowerCase().includes('mini'),
+      ) ?? searchResults[0];
 
-    console.log(`Fetching content units for: ${firstResult.id}`);
-    const units = await provider.fetchContentUnits(firstResult.id);
+    expect(target.providerId).toBe('allmanga');
+    console.log(`AllManga selected: ${target.title} (${target.id})`);
+
+    const units = await provider.fetchContentUnits(target.id, 'sub');
     expect(units.length).toBeGreaterThan(0);
 
-    const firstUnit = units[0];
-    console.log(`First content unit: ${firstUnit.title} (${firstUnit.id})`);
+    const ep1 = units[0];
+    const stream = await provider.resolveStream(ep1.id);
+    expect(stream.type).toBe('video');
+    if (stream.type !== 'video') return;
 
-    console.log(`Resolving stream for content unit: ${firstUnit.id}`);
-    const streamPayload = await provider.resolveStream(firstUnit.id);
+    expect(stream.streams.length).toBeGreaterThan(0);
+    console.log(
+      `AllManga resolved ${stream.streams.length} stream candidate(s); ` +
+        `top: ${stream.streams[0].sourceUrl.slice(0, 80)}`,
+    );
 
-    expect(streamPayload.type).toBe('video');
-    if (streamPayload.type === 'video') {
-      expect(streamPayload.streams.length).toBeGreaterThan(0);
-      const stream = streamPayload.streams[0];
-      console.log(`Resolved stream URL: ${stream.sourceUrl}`);
-      expect(stream.sourceUrl).toBeTruthy();
-
-      console.log(`Performing verification request to: ${stream.sourceUrl}`);
-      const headers = stream.headers || {};
-      const streamRes = await fetch(stream.sourceUrl, {
-        method: 'GET',
-        headers: {
-          ...headers,
-          Range: 'bytes=0-1024',
-        },
-      });
-      console.log(`Stream server responded with status: ${streamRes.status}`);
-      expect([200, 206]).toContain(streamRes.status);
-
-      // Capture screenshot using ffmpeg — throws on failure, causing the test to fail
-      await captureStreamScreenshot('allmanga', stream.sourceUrl, headers);
-    }
-  }, 45000); // 45-second timeout
+    // Iterate candidates until one yields a real screenshot.
+    const result = await captureStreamScreenshot('allmanga', stream.streams);
+    expect(result.outputPath).toMatch(/screenshot_allmanga\.png$/);
+  }, 90000);
 });

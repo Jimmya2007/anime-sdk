@@ -1,6 +1,7 @@
 import { BaseProvider } from './BaseProvider.js';
 import { HttpClient } from '../transport/http.js';
 import { DomRegistry } from '../transport/dom.js';
+import { BloggerExtractor } from '../extractors/BloggerExtractor.js';
 import {
   IMediaSearchResult,
   IContentUnit,
@@ -17,6 +18,7 @@ export class GoyabuProvider extends BaseProvider {
   public readonly id = 'goyabu';
   public readonly supportedTypes: MediaCatalogType[] = ['ANIME'];
   private baseUrl = 'https://goyabu.io';
+  private bloggerExtractor: BloggerExtractor;
 
   constructor(http: HttpClient, options: GoyabuOptions = {}) {
     super(http);
@@ -28,6 +30,7 @@ export class GoyabuProvider extends BaseProvider {
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       );
     }
+    this.bloggerExtractor = new BloggerExtractor(http);
   }
 
   /**
@@ -130,13 +133,14 @@ export class GoyabuProvider extends BaseProvider {
           for (let i = 0; i < epData.length; i++) {
             const ep = epData[i];
             const num = ep.episodio ? parseFloat(ep.episodio) : (i + 1);
-            // Construct direct WordPress post URL using the ID
-            const epId = ep.id || ep.ID;
-            if (!epId) continue;
+            // Goyabu's episode array exposes a `link` field that's a relative
+            // path (e.g. "/40742"); use it directly when present.
+            const link = ep.link || (ep.id ? `/${ep.id}` : ep.ID ? `/${ep.ID}` : '');
+            if (!link) continue;
 
             units.push({
-              id: `/?p=${epId}`,
-              title: `Episódio ${num}`,
+              id: link,
+              title: ep.episode_name ? `Episódio ${num}: ${ep.episode_name}` : `Episódio ${num}`,
               number: num,
               language: 'sub',
             });
@@ -179,8 +183,16 @@ export class GoyabuProvider extends BaseProvider {
 
   /**
    * Resolve playback stream for a specific Goyabu content unit path.
+   *
+   * Goyabu wraps all streams in a Blogger video embed (`playersData[].url`
+   * points at `blogger.com/video.g?token=...`). We use BloggerExtractor to
+   * call Google's batchexecute API and get back the actual googlevideo.com
+   * URLs.
    */
-  public async resolveStream(unitId: string, _language?: import('../types/index.js').ContentLanguage): Promise<ResolvedMediaStream> {
+  public async resolveStream(
+    unitId: string,
+    _language?: import('../types/index.js').ContentLanguage,
+  ): Promise<ResolvedMediaStream> {
     const fullUrl = `${this.baseUrl}${unitId.startsWith('/') ? '' : '/'}${unitId}`;
     const response = await this.http.get(fullUrl);
     if (response.status !== 200) {
@@ -190,165 +202,97 @@ export class GoyabuProvider extends BaseProvider {
     const html = await response.text();
     const videoSources: IVideoPayload[] = [];
 
-    // Helper to map quality to standard type
-    const mapQuality = (label: string | number): '1080p' | '720p' | '360p' | 'auto' => {
-      const normalized = String(label).toLowerCase();
-      if (normalized.includes('1080')) return '1080p';
-      if (normalized.includes('720')) return '720p';
-      if (normalized.includes('480') || normalized.includes('360')) return '360p';
+    // Pull Blogger URLs from `playersData = [...]`
+    const bloggerUrls = this.collectBloggerUrls(html);
+    const errors: string[] = [];
+    for (const url of bloggerUrls) {
+      try {
+        const extracted = await this.bloggerExtractor.extract(url);
+        videoSources.push(...extracted);
+      } catch (e) {
+        errors.push(`${url.slice(0, 80)}: ${(e as Error).message}`);
+      }
+    }
+
+    // Fallback: also accept any direct mp4/m3u8 sitting in the page itself.
+    if (videoSources.length === 0) {
+      const direct = this.scrapeDirectStreams(html, fullUrl);
+      videoSources.push(...direct);
+    }
+
+    if (videoSources.length === 0) {
+      throw new Error(
+        `Goyabu: no playable streams for ${unitId}. ` +
+          (bloggerUrls.length > 0
+            ? `Tried ${bloggerUrls.length} Blogger URL(s). Errors: ${errors.join('; ')}`
+            : 'No Blogger URLs found on the episode page.'),
+      );
+    }
+
+    return { type: 'video', streams: videoSources };
+  }
+
+  private collectBloggerUrls(html: string): string[] {
+    const urls = new Set<string>();
+
+    // The HTML embeds playersData as JS literal containing JSON-with-escaped-slashes:
+    //   playersData = [{"name":"Blog","url":"https:\/\/www.blogger.com\/video.g?token=..."}]
+    const playersMatch = html.match(/playersData\s*=\s*(\[[\s\S]*?\])\s*;/i);
+    if (playersMatch) {
+      try {
+        const cleaned = playersMatch[1].replace(/\\\//g, '/');
+        const players = JSON.parse(cleaned);
+        if (Array.isArray(players)) {
+          for (const p of players) {
+            if (typeof p?.url === 'string' && p.url.includes('blogger.com/video.g')) {
+              urls.add(p.url);
+            }
+          }
+        }
+      } catch {
+        /* fall through to regex */
+      }
+    }
+
+    // Fallback: raw scan
+    const re = /https?:(?:\\\/|\/)\/www\.blogger\.com\/video\.g\?token=[A-Za-z0-9_-]+/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(html)) !== null) {
+      urls.add(m[0].replace(/\\\//g, '/'));
+    }
+    return Array.from(urls);
+  }
+
+  private scrapeDirectStreams(html: string, refererUrl: string): IVideoPayload[] {
+    const out: IVideoPayload[] = [];
+    const seen = new Set<string>();
+    const mapQuality = (label: string): IVideoPayload['quality'] => {
+      const s = label.toLowerCase();
+      if (s.includes('1080')) return '1080p';
+      if (s.includes('720')) return '720p';
+      if (s.includes('480')) return '480p';
+      if (s.includes('360')) return '360p';
       return 'auto';
     };
 
-    // Strategy 1: Check elements in DOM (iframe or video)
-    const doc = DomRegistry.parse(html);
-    const iframe = doc.querySelector('iframe');
-    const iframeSrc = iframe ? iframe.getAttribute('src') : null;
-    if (iframeSrc) {
-      videoSources.push({
-        sourceUrl: iframeSrc,
-        isHLS: iframeSrc.includes('.m3u8'),
-        quality: 'auto',
-        headers: { Referer: fullUrl },
-      });
-    }
-
-    const videoSource = doc.querySelector('video source') || doc.querySelector('video[data-video-src]');
-    const videoSrc = videoSource ? (videoSource.getAttribute('src') || videoSource.getAttribute('data-video-src')) : null;
-    if (videoSrc) {
-      videoSources.push({
-        sourceUrl: videoSrc,
-        isHLS: videoSrc.includes('.m3u8'),
-        quality: 'auto',
-        headers: { Referer: fullUrl },
-      });
-    }
-
-    // Strategy 2: Extract playersData array or blogger tokens and decode via admin-ajax.php
-    let bloggerToken = '';
-    let bloggerUrlFallback = '';
-
-    const playersDataMatch = html.match(/var\s+playersData\s*=\s*(\[.*?\])\s*;/i);
-    if (playersDataMatch) {
-      try {
-        const cleaned = playersDataMatch[1].replace(/([,{\[\s]|^)(\w+)\s*:/g, '$1"$2":').replace(/'/g, '"');
-        const players = JSON.parse(cleaned);
-        if (Array.isArray(players) && players.length > 0) {
-          bloggerToken = players[0].blogger_token || '';
-          bloggerUrlFallback = players[0].url || '';
-        }
-      } catch (e) {
-        // ignore
+    const patterns: Array<[RegExp, IVideoPayload['quality']]> = [
+      [/"file"\s*:\s*"(https?:\/\/[^"]+?\.m3u8[^"]*)"/i, 'auto'],
+      [/"file"\s*:\s*"(https?:\/\/[^"]+?\.mp4[^"]*)"/i, 'auto'],
+      [/src\s*[:=]\s*["'](https?:\/\/[^"']+?\.m3u8[^"']*)["']/i, 'auto'],
+      [/src\s*[:=]\s*["'](https?:\/\/[^"']+?\.mp4[^"']*)["']/i, 'auto'],
+    ];
+    for (const [re, q] of patterns) {
+      const m = html.match(re);
+      if (m && !seen.has(m[1])) {
+        seen.add(m[1]);
+        out.push({
+          sourceUrl: m[1],
+          isHLS: m[1].includes('.m3u8'),
+          quality: mapQuality(q),
+          headers: { Referer: refererUrl },
+        });
       }
     }
-
-    if (!bloggerToken) {
-      const tokenPatterns = [
-        /blogger_token\s*[:=]\s*["']([^"']+)["']/i,
-        /data-blogger-token\s*=\s*["']([^"']+)["']/i,
-        /"blogger_token"\s*:\s*"([^"]+)"/i,
-      ];
-      for (const pattern of tokenPatterns) {
-        const m = html.match(pattern);
-        if (m) {
-          bloggerToken = m[1];
-          break;
-        }
-      }
-    }
-
-    if (bloggerToken) {
-      try {
-        const bodyParams = new URLSearchParams();
-        bodyParams.append('action', 'decode_blogger_video');
-        bodyParams.append('token', bloggerToken);
-
-        const ajaxResponse = await this.http.post(
-          `${this.baseUrl}/wp-admin/admin-ajax.php`,
-          bodyParams,
-          {
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'X-Requested-With': 'XMLHttpRequest',
-              Referer: fullUrl,
-            },
-          }
-        );
-
-        if (ajaxResponse.status === 200) {
-          const ajaxText = await ajaxResponse.text();
-          let decodedData: any;
-          try {
-            decodedData = JSON.parse(ajaxText);
-          } catch (e) {
-            // If body is raw URL string
-            if (ajaxText.startsWith('http')) {
-              videoSources.push({
-                sourceUrl: ajaxText,
-                isHLS: ajaxText.includes('.m3u8'),
-                quality: 'auto',
-                headers: { Referer: fullUrl },
-              });
-            }
-          }
-
-          if (decodedData && decodedData.data && Array.isArray(decodedData.data.play)) {
-            for (const streamItem of decodedData.data.play) {
-              if (streamItem.src) {
-                videoSources.push({
-                  sourceUrl: streamItem.src,
-                  isHLS: streamItem.src.includes('.m3u8'),
-                  quality: mapQuality(streamItem.size || 'auto'),
-                  headers: { Referer: fullUrl },
-                });
-              }
-            }
-          }
-        }
-      } catch (err) {
-        // Ignore AJAX failures and fallback to patterns
-      }
-    }
-
-    // Strategy 3: Search script tags / HTML source for direct HLS/MP4 streams
-    if (videoSources.length === 0) {
-      const filePatterns = [
-        /"file"\s*:\s*"(https?:\/\/[^"]+\.m3u8[^"]*)"/i,
-        /"file"\s*:\s*"(https?:\/\/[^"]+\.mp4[^"]*)"/i,
-        /src\s*[:=]\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i,
-        /src\s*[:=]\s*["'](https?:\/\/[^"']+\.mp4[^"']*)["']/i,
-        /source\s*[:=]\s*["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i,
-      ];
-
-      for (const pattern of filePatterns) {
-        const m = html.match(pattern);
-        if (m && m[1]) {
-          videoSources.push({
-            sourceUrl: m[1],
-            isHLS: m[1].includes('.m3u8'),
-            quality: 'auto',
-            headers: { Referer: fullUrl },
-          });
-        }
-      }
-    }
-
-    // Strategy 4: Fallback to blogger URL directly
-    if (videoSources.length === 0 && bloggerUrlFallback) {
-      videoSources.push({
-        sourceUrl: bloggerUrlFallback,
-        isHLS: bloggerUrlFallback.includes('.m3u8'),
-        quality: 'auto',
-        headers: { Referer: fullUrl },
-      });
-    }
-
-    if (videoSources.length === 0) {
-      throw new Error(`Failed to extract Goyabu playback stream for episode: ${unitId}`);
-    }
-
-    return {
-      type: 'video',
-      streams: videoSources,
-    };
+    return out;
   }
 }

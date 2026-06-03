@@ -1,182 +1,124 @@
-# Universal Media Scraper SDK (ani-sdk)
+# ani-sdk — Universal Anime Scraper SDK
 
-A highly optimized, extensible, and fully-typed Universal Media Scraper SDK written in modern TypeScript. Designed as a lightweight first-class library to fetch catalog indices, metadata, episode list mapping, and direct media stream URLs across multiple video platforms.
+A small, typed, dependency-light TypeScript SDK for searching anime, listing
+episodes, and resolving direct stream URLs across multiple providers. Each
+provider is wired to its own scraping path and the SDK ships with a handful of
+generic embed extractors (`Mp4Upload`, `Blogger`, `Vidstreaming`,
+`GenericHls`) you can reuse outside of providers.
 
----
+## Status
 
-## Key Features
+All three providers below are exercised by live E2E tests; each test runs the
+full pipeline (search → fetchContentUnits → resolveStream) and validates the
+result by pulling a real frame ~5 seconds into the stream with ffmpeg.
 
-- 🚀 **Zero Heavy Dependencies**: Completely free of heavy browser automation frameworks (like Puppeteer) in production.
-- 🛡️ **Cloudflare/DDoS-Guard Bypass** (optional): Uses a decoupled, Docker-based [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) proxy for bypassing Turnstile and DDoS-Guard challenges.
-- 🎙️ **First-Class Sub/Dub Support**: Explicitly typed support for localized content languages (`'sub' | 'dub' | 'raw'`) throughout search and stream resolution.
-- 📦 **Modern ESM Architecture**: Built using modern ES modules (ESM) with clean type definitions.
-- ⚡ **Resilient Network Client**: Custom `HttpClient` wrapper supporting automatic request timeout settings and optional path/query proxy routing.
+| Provider ID  | Site              | Notes                                                                                  |
+|--------------|-------------------|----------------------------------------------------------------------------------------|
+| `allmanga`   | `allmanga.to`     | AllAnime GraphQL + tobeparsed AES-CTR decryption + XOR source decoding + Mp4Upload extractor. |
+| `gogoanime`  | `anineko.to`      | Direct page scraping; embed URLs are extracted on the screenshot side.                |
+| `goyabu`     | `goyabu.io`       | Pulls the Blogger token, then calls Google's `batchexecute` for googlevideo URLs.     |
 
----
+### Why this is a smaller list than the previous attempt
 
-## Architecture & Design
+The earlier revision exposed `AnimePahe`, `HiAnimes`, `AnimeFire`, and
+`SuperFlix`. They are removed:
 
-```mermaid
-graph TD
-    App[Client Application] --> SDK[ani-sdk]
-    SDK --> Providers[Provider Registry]
-    SDK --> HTTP[HttpClient]
-    SDK --> Flare[FlareSolverrClient]
+| Removed provider | Why                                                                                                     |
+|------------------|---------------------------------------------------------------------------------------------------------|
+| `AnimePahe`      | Search and episodes work via FlareSolverr, but `kwik.cx` (the actual stream host) returns Cloudflare-banned for our IP. Even with a real browser FlareSolverr fails the challenge — `Cloudflare has blocked this request`. |
+| `HiAnimes`       | The `/ajax/search` and `/ajax/v2/episode/...` JSON endpoints don't exist on `hianimes.se` anymore — every URL now serves the SPA shell. The provider would have to be reverse-engineered against the new in-browser API. |
+| `AnimeFire`      | `animefire.plus` is Cloudflare-protected; FlareSolverr can't get a clearance cookie from our IP. |
+| `SuperFlix`      | Different surface — `superflixapi.fit` is now a live-action site behind Turnstile; the previous Turnstile-iframe extraction path is dead. |
 
-    subgraph Providers
-        AP[AnimePaheProvider]
-        HA[HiAnimesProvider]
-        SF[SuperFlixProvider]
-        AM[AllmangaProvider]
-        AF[AnimefireProvider]
-        GY[GoyabuProvider]
-        GA[GogoanimeProvider]
-    end
+These are documented (not silently swept under a "skipped" test) so anyone
+revisiting from a different network can re-enable them.
 
-    AP -.->|Optional Bypass| Flare
-    HA -.->|Optional Bypass| Flare
-    SF -.->|Optional Bypass| Flare
+## Architecture
 
-    AP -->|Fetch API| HTTP
-    HA -->|Fetch API| HTTP
-    SF -->|Fetch API| HTTP
-    AM -->|GraphQL| HTTP
-    AF -->|Direct Scraping| HTTP
-    GY -->|Scraping| HTTP
-    GA -->|Embed API| HTTP
+```
+src/
+├── transport/
+│   ├── http.ts              # HttpClient — fetch + curl fallback
+│   ├── flaresolverr.ts      # Optional Cloudflare bypass proxy
+│   ├── dom.ts               # Pluggable DOMParser registry (linkedom in tests)
+│   └── hlsUtils.ts          # Rewrite m3u8 chunk URLs through a proxy
+├── extractors/
+│   ├── BaseExtractor.ts
+│   ├── Mp4UploadExtractor.ts        # Direct mp4 URL from www.mp4upload.com
+│   ├── BloggerExtractor.ts          # Google batchexecute → googlevideo URLs
+│   ├── VidstreamingExtractor.ts     # Legacy Gogo encrypt-ajax flow
+│   └── GenericHlsExtractor.ts       # Best-effort m3u8/mp4 from embed pages
+├── providers/
+│   ├── BaseProvider.ts
+│   ├── AllmangaProvider.ts
+│   ├── GogoanimeProvider.ts
+│   └── GoyabuProvider.ts
+├── types/index.ts            # IMediaSearchResult, IContentUnit, ResolvedMediaStream, ...
+└── utils/crypto.ts           # AES-CBC + AES-CTR helpers
 ```
 
----
+## Getting started
 
-## Supported Providers
-
-| Provider ID | Target URL | CF / DDoS-Guard Bypass | Sub/Dub Support | Details |
-|---|---|---|---|---|
-| `allmanga` | `allmanga.to` | No (Direct GraphQL API) | Yes (Sub / Dub tabs) | High-speed GraphQL search & iframe stream resolver. |
-| `animepahe` | `animepahe.pw` | **Yes (Required via FlareSolverr)** | Yes (Sub / Dub / JPN) | Obfuscated JS decryption for `kwik.cx` redirect streams. |
-| `hianimes` | `hianimes.se` | **Yes (Required via FlareSolverr)** | Yes (Sub / Dub categories) | Zoro/Aniwatch Next.js scraper utilizing server-render payloads. |
-| `superflix` | `superflixapi.best` | **Yes (Required via FlareSolverr)** | Yes (Subbed Default) | Direct extraction of video streams from page script variables. |
-| `gogoanime` | `anineko.to` | No | Yes (Sub / Dub separate IDs) | Direct scraping of embed and iframe streaming player endpoints. |
-| `animefire` | `animefire.plus` | No | Yes (Subbed) | Direct scraper for Latin America / Portuguese media catalog. |
-| `goyabu` | `goyabu.io` | No | Yes (Subbed) | Multi-server stream resolution (Latin America catalog). |
-
----
-
-## Installation
-
-Install the library using your favorite package manager:
-
-```bash
-npm install ani-sdk
-```
-
----
-
-## Getting Started
-
-### 1. Simple Scraped Providers (Direct Connections)
-
-For providers that do not require challenge solvers, you can use the SDK directly:
-
-```typescript
+```ts
 import { HttpClient, AllmangaProvider } from 'ani-sdk';
+import { DOMParser as LinkeDomParser } from 'linkedom';
 
-const http = new HttpClient({ timeoutMs: 15000 });
+// linkedom plugs in a DOMParser for Node — required for providers that scrape HTML.
+if (typeof globalThis.DOMParser === 'undefined') {
+  (globalThis as any).DOMParser = LinkeDomParser;
+}
+
+const http = new HttpClient({ timeoutMs: 25000 });
 const provider = new AllmangaProvider(http);
 
-// Search for content
-const results = await provider.search('Naruto');
-console.log('Search Results:', results);
+const results = await provider.search('Frieren');
+const target = results.find((r) => r.title.toLowerCase().includes('beyond journey'));
+const units = await provider.fetchContentUnits(target.id, 'sub');
+const stream = await provider.resolveStream(units[0].id);
 
-// Fetch content units (episodes)
-const contentUnits = await provider.fetchContentUnits(results[0].id);
-console.log('Episodes:', contentUnits);
-
-// Resolve stream URL
-const stream = await provider.resolveStream(contentUnits[0].id);
-console.log('Stream Payload:', stream.streams[0].sourceUrl);
-```
-
-### 2. Protected Providers (Requires FlareSolverr)
-
-Providers protected by Turnstile or DDoS-Guard (e.g. `AnimePahe`, `HiAnimes`, and `SuperFlix`) require a running instance of **FlareSolverr**.
-
-First, run FlareSolverr in the background:
-```bash
-docker run -d \
-  --name=flaresolverr \
-  -p 8191:8191 \
-  -e LOG_LEVEL=info \
-  --restart unless-stopped \
-  ghcr.io/flaresolverr/flaresolverr:latest
-```
-
-Then, initialize and pass the client to the providers:
-
-```typescript
-import { HttpClient, FlareSolverrClient, AnimePaheProvider } from 'ani-sdk';
-
-const http = new HttpClient();
-const flare = new FlareSolverrClient({ url: 'http://localhost:8191', timeoutMs: 60000 });
-
-// 1. Confirm FlareSolverr service is available
-if (await flare.isAvailable()) {
-  const pahe = new AnimePaheProvider(http, { flaresolverr: flare });
-  
-  // Search and resolve stream
-  const searchResults = await pahe.search('One Piece');
-  const episodes = await pahe.fetchContentUnits(searchResults[0].id, 'sub');
-  const streamPayload = await pahe.resolveStream(episodes[0].id);
-
-  console.log('Resolved Stream URL:', streamPayload.streams[0].sourceUrl);
-} else {
-  console.warn('FlareSolverr is offline. Skipping protected providers.');
+if (stream.type === 'video') {
+  console.log('Top stream:', stream.streams[0].sourceUrl);
 }
 ```
 
----
+`stream.streams` is sorted best-first. Iterate it if the first candidate
+returns 4xx — different embed hosts have different reliability windows.
 
-## SDK Configuration Options
+## E2E tests
 
-### HttpClient Configuration (`HttpClientConfig`)
-
-| Property | Type | Description | Default |
-|---|---|---|---|
-| `proxyUrl` | `string` | Proxy server URL to route the requests through. | `undefined` |
-| `proxyType` | `'prepend' \| 'query'` | Proxy pattern to use. | `'prepend'` |
-| `proxyQueryParam`| `string` | Query parameter name used in `'query'` proxy. | `'url'` |
-| `defaultHeaders` | `Record<string, string>` | Default HTTP headers to inject into requests. | `{}` |
-| `timeoutMs` | `number` | Total request timeout in milliseconds before aborting. | `10000` (10s) |
-
-### FlareSolverr Client Options (`FlareSolverrOptions`)
-
-| Property | Type | Description | Default |
-|---|---|---|---|
-| `url` | `string` | URL to the FlareSolverr instance. | `http://localhost:8191` |
-| `timeoutMs` | `number` | Total FlareSolverr container request timeout. | `60000` (60s) |
-| `maxTimeout` | `number` | Max time FlareSolverr spends solving Turnstile. | `30000` (30s) |
-
----
-
-## Development & Test Commands
-
-To compile TypeScript to JS:
 ```bash
-npm run build
+# All tests, including live e2e (~60s total against allmanga.to, anineko.to, goyabu.io)
+npx vitest run
+
+# Just the e2e suite
+npx vitest run tests/e2e
 ```
 
-To run all unit and integration tests (tests requiring FlareSolverr automatically skip if the service is not running):
-```bash
-npm run test:run
-```
+Each e2e test:
+1. Searches a popular show (`Frieren` for sub/dub providers, `Naruto` for the
+   PT-BR provider).
+2. Picks a mainline title.
+3. Resolves a stream and walks the candidate list with
+   `captureStreamScreenshot()`. The helper:
+   - probes a URL with a Range GET to distinguish embed pages from direct
+     video bytes,
+   - scrapes embed HTML for an `.m3u8`/`.mp4` URL when needed,
+   - downloads an HLS segment ~5s in and runs ffmpeg locally on it (PNG-wrapped
+     segments are stripped), or
+   - hands the URL straight to ffmpeg with `-user_agent`/`-referer` for plain
+     MP4 sources.
+4. Asserts ffmpeg produced a real screenshot (>1KB).
 
-To run tests in watch mode:
-```bash
-npm run test
-```
+Screenshots land in `scratch/screenshots/screenshot_<provider>.png`.
 
----
+## Requirements
+
+- Node 20+ (the SDK uses `fetch`, `globalThis.crypto.subtle`, top-level await
+  in tests).
+- `ffmpeg` on `PATH` for e2e tests.
+- `linkedom` is a dev-time dep that registers a Node DOMParser for scraping
+  tests.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for more information.
+MIT

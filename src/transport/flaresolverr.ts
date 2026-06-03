@@ -65,8 +65,11 @@ export class FlareSolverrClient {
 
   constructor(options: FlareSolverrOptions = {}) {
     this.baseUrl = (options.url ?? 'http://localhost:8191').replace(/\/$/, '');
-    this.timeoutMs = options.timeoutMs ?? 60000;
-    this.maxTimeout = options.maxTimeout ?? 30000;
+    this.timeoutMs = options.timeoutMs ?? 120000;
+    // Bumped from the FlareSolverr default of 30s — DDoS-Guard (AnimePahe) and
+    // Cloudflare Turnstile (HiAnimes, SuperFlix) regularly take 45-60s to
+    // solve on the first attempt.
+    this.maxTimeout = options.maxTimeout ?? 90000;
   }
 
   /**

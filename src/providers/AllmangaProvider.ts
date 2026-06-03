@@ -1,6 +1,8 @@
 import { BaseProvider } from './BaseProvider.js';
 import { HttpClient } from '../transport/http.js';
 import { aesDecryptCtr } from '../utils/crypto.js';
+import { Mp4UploadExtractor } from '../extractors/Mp4UploadExtractor.js';
+import { GenericHlsExtractor } from '../extractors/GenericHlsExtractor.js';
 import {
   IMediaSearchResult,
   IContentUnit,
@@ -16,50 +18,38 @@ export interface AllmangaOptions {
   defaultLanguage?: ContentLanguage;
 }
 
-const hexSubstitutionTable: Record<string, string> = {
-  "79": "A", "7a": "B", "7b": "C", "7c": "D", "7d": "E", "7e": "F", "7f": "G",
-  "70": "H", "71": "I", "72": "J", "73": "K", "74": "L", "75": "M", "76": "N", "77": "O",
-  "68": "P", "69": "Q", "6a": "R", "6b": "S", "6c": "T", "6d": "U", "6e": "V", "6f": "W",
-  "60": "X", "61": "Y", "62": "Z",
-  "59": "a", "5a": "b", "5b": "c", "5c": "d", "5d": "e", "5e": "f", "5f": "g",
-  "50": "h", "51": "i", "52": "j", "53": "k", "54": "l", "55": "m", "56": "n", "57": "o",
-  "48": "p", "49": "q", "4a": "r", "4b": "s", "4c": "t", "4d": "u", "4e": "v", "4f": "w",
-  "40": "x", "41": "y", "42": "z",
-  "08": "0", "09": "1", "0a": "2", "0b": "3", "0c": "4", "0d": "5", "0e": "6", "0f": "7",
-  "00": "8", "01": "9",
-  "15": "-", "16": ".", "67": "_", "46": "~",
-  "02": ":", "17": "/", "07": "?", "1b": "#",
-  "63": "[", "65": "]", "78": "@",
-  "19": "!", "1c": "$", "1e": "&",
-  "10": "(", "11": ")", "12": "*", "13": "+", "14": ",",
-  "03": ";", "05": "=", "1d": "%"
-};
-
-function decodeSourceURL(encoded: string): string {
-  let result = '';
-  for (let i = 0; i < encoded.length; i += 2) {
-    const pair = encoded.substring(i, i + 2);
-    if (hexSubstitutionTable[pair] !== undefined) {
-      result += hexSubstitutionTable[pair];
-    } else {
-      result += pair;
-    }
+/**
+ * Decode an AllAnime obfuscated source URL.
+ *
+ * AllAnime prefixes obfuscated URLs with `--` followed by a hex string. Each
+ * pair of hex digits is XOR'd with 0x38 to recover the original byte. After
+ * decoding, the path `/clock` is rewritten to `/clock.json`.
+ */
+function decodeAllAnimeSource(encoded: string): string {
+  const hex = encoded.startsWith('--') ? encoded.slice(2) : encoded;
+  const bytes = new Uint8Array(hex.length >>> 1);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i >>> 1] = parseInt(hex.substring(i, i + 2), 16) ^ 0x38;
   }
-  result = result.replace(/\/clock/g, '/clock.json');
-  if (result.startsWith('/')) {
-    result = 'https://allanime.day' + result;
-  }
-  return result;
+  // latin1 preserves the raw byte values for non-ASCII characters
+  const decoded = new TextDecoder('latin1').decode(bytes);
+  return decoded.replace(/\/clock(?=\?|$)/, '/clock.json');
 }
+
+const ALLANIME_KEY_PHRASE = 'Xot36i3lK3:v1';
+const ALLANIME_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0';
 
 export class AllmangaProvider extends BaseProvider {
   public readonly id = 'allmanga';
   public readonly supportedTypes: MediaCatalogType[] = ['ANIME'];
   private apiBase = 'https://api.allanime.day/api';
+  private apiHost = 'https://allanime.day';
   private referer = 'https://allmanga.to';
-  private origin = 'https://youtu-chan.com';
-  private userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0';
+  private origin = 'https://allmanga.to';
   private defaultLanguage: ContentLanguage;
+  private mp4UploadExtractor: Mp4UploadExtractor;
+  private genericExtractor: GenericHlsExtractor;
 
   constructor(http: HttpClient, options: AllmangaOptions = {}) {
     super(http);
@@ -67,119 +57,88 @@ export class AllmangaProvider extends BaseProvider {
       this.apiBase = options.baseUrl;
     }
     this.defaultLanguage = options.defaultLanguage ?? 'sub';
+    this.mp4UploadExtractor = new Mp4UploadExtractor(http);
+    this.genericExtractor = new GenericHlsExtractor(http);
   }
 
-  /**
-   * Search for anime using AllManga's GraphQL API.
-   */
+  // ─── Search ────────────────────────────────────────────────────────────────
+
   public async search(query: string): Promise<IMediaSearchResult[]> {
     const searchGql = `query($search: SearchInput, $limit: Int, $page: Int, $countryOrigin: VaildCountryOriginEnumType) {
       shows(search: $search, limit: $limit, page: $page, countryOrigin: $countryOrigin) {
-        edges {
-          _id
-          name
-          englishName
-          availableEpisodes
-          __typename
-        }
+        edges { _id name englishName availableEpisodes __typename }
       }
     }`;
 
     const variables = {
-      search: {
-        allowAdult: false,
-        allowUnknown: false,
-        query: query
-      },
+      search: { allowAdult: false, allowUnknown: false, query },
       limit: 40,
       page: 1,
-      countryOrigin: "ALL"
+      countryOrigin: 'ALL',
     };
 
-    const response = await this.http.post(
+    const res = await this.http.post(
       this.apiBase,
-      {
-        variables,
-        query: searchGql
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Referer': this.referer,
-          'User-Agent': this.userAgent
-        }
-      }
+      { variables, query: searchGql },
+      { headers: this.apiHeaders() },
     );
 
-    if (response.status !== 200) {
-      throw new Error(`AllManga search failed with status ${response.status}`);
+    if (res.status !== 200) {
+      throw new Error(`AllManga search failed with status ${res.status}`);
     }
 
-    const json = await response.json() as any;
-    const edges = json?.data?.shows?.edges || [];
-    const results: IMediaSearchResult[] = [];
+    const json = (await res.json()) as any;
+    const edges = json?.data?.shows?.edges ?? [];
+    const out: IMediaSearchResult[] = [];
 
     for (const edge of edges) {
       const title = edge.englishName || edge.name;
       if (!title) continue;
-
-      // Determine which translation types are available
       const avail = edge.availableEpisodes as Record<string, number> | undefined;
-      const availableLanguages: ContentLanguage[] = [];
-      if (avail?.sub) availableLanguages.push('sub');
-      if (avail?.dub) availableLanguages.push('dub');
-      if (avail?.raw) availableLanguages.push('raw');
-
-      results.push({
+      const langs: ContentLanguage[] = [];
+      if (avail?.sub) langs.push('sub');
+      if (avail?.dub) langs.push('dub');
+      if (avail?.raw) langs.push('raw');
+      out.push({
         id: edge._id,
         title,
         catalogType: 'ANIME',
         providerId: this.id,
-        availableLanguages: availableLanguages.length > 0 ? availableLanguages : undefined,
+        availableLanguages: langs.length > 0 ? langs : undefined,
       });
     }
-
-    return results;
+    return out;
   }
 
-  /**
-   * Fetch episode list for a show ID.
-   */
-  public async fetchContentUnits(mediaId: string, language?: ContentLanguage): Promise<IContentUnit[]> {
+  // ─── Episodes ──────────────────────────────────────────────────────────────
+
+  public async fetchContentUnits(
+    mediaId: string,
+    language?: ContentLanguage,
+  ): Promise<IContentUnit[]> {
     const lang = language ?? this.defaultLanguage;
-    const episodesListGql = `query ($showId: String!) { show( _id: $showId ) { _id availableEpisodesDetail }}`;
+    const gql = `query ($showId: String!) { show( _id: $showId ) { _id availableEpisodesDetail }}`;
 
-    const response = await this.http.post(
+    const res = await this.http.post(
       this.apiBase,
-      {
-        variables: { showId: mediaId },
-        query: episodesListGql
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Referer': this.referer,
-          'User-Agent': this.userAgent
-        }
-      }
+      { variables: { showId: mediaId }, query: gql },
+      { headers: this.apiHeaders() },
     );
-
-    if (response.status !== 200) {
-      throw new Error(`Failed to fetch AllManga episodes: ${response.status}`);
+    if (res.status !== 200) {
+      throw new Error(`Failed to fetch AllManga episodes: ${res.status}`);
     }
 
-    const json = await response.json() as any;
-    const detail = json?.data?.show?.availableEpisodesDetail || {};
-
-    // Use requested language track, fall back to sub if no episodes in that track
-    const episodes: string[] = detail[lang] || detail.sub || [];
-    const resolvedLang: ContentLanguage = detail[lang]?.length > 0 ? lang : 'sub';
+    const json = (await res.json()) as any;
+    const detail = json?.data?.show?.availableEpisodesDetail ?? {};
+    const episodes: string[] =
+      detail[lang]?.length > 0 ? detail[lang] : detail.sub ?? [];
+    const resolvedLang: ContentLanguage =
+      detail[lang]?.length > 0 ? lang : 'sub';
 
     const units: IContentUnit[] = [];
     for (const epStr of episodes) {
       const num = parseFloat(epStr);
       if (isNaN(num)) continue;
-
       units.push({
         id: `${mediaId}/${epStr}/${resolvedLang}`,
         title: `Episode ${epStr}`,
@@ -187,28 +146,128 @@ export class AllmangaProvider extends BaseProvider {
         language: resolvedLang,
       });
     }
-
     return units.sort((a, b) => a.number - b.number);
   }
 
-  /**
-   * Decrypt "tobeparsed" blob.
-   */
-  private async decryptTobeparsed(blob: string): Promise<any[]> {
-    let binaryString: string;
-    try {
-      binaryString = atob(blob);
-    } catch (e) {
-      const normalized = blob.replace(/-/g, '+').replace(/_/g, '/');
-      const pad = normalized.length % 4;
-      const padded = pad ? normalized + '='.repeat(4 - pad) : normalized;
-      binaryString = atob(padded);
+  // ─── Streams ───────────────────────────────────────────────────────────────
+
+  public async resolveStream(
+    unitId: string,
+    language?: ContentLanguage,
+  ): Promise<ResolvedMediaStream> {
+    const [showId, episodeString, unitLang] = unitId.split('/');
+    if (!showId || !episodeString) {
+      throw new Error(`Invalid AllManga unit ID: ${unitId}`);
+    }
+    const lang =
+      language ??
+      (unitLang as ContentLanguage | undefined) ??
+      this.defaultLanguage;
+
+    const sources = await this.fetchEpisodeSources(showId, episodeString, lang);
+    if (sources.length === 0) {
+      throw new Error(
+        `AllManga returned no source URLs for ${unitId} (lang=${lang})`,
+      );
     }
 
-    const data = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      data[i] = binaryString.charCodeAt(i);
+    // Process sources in priority order; collect streams across all sources.
+    sources.sort(
+      (a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0),
+    );
+
+    const streams: IVideoPayload[] = [];
+    const errors: string[] = [];
+
+    for (const src of sources) {
+      try {
+        const extracted = await this.extractSource(src, lang);
+        streams.push(...extracted);
+      } catch (e) {
+        errors.push(`${src.sourceName}: ${(e as Error).message}`);
+      }
     }
+
+    if (streams.length === 0) {
+      throw new Error(
+        `AllManga: no playable streams could be extracted for ${unitId}. ` +
+          `Tried ${sources.length} source(s). Errors: ${errors.join('; ')}`,
+      );
+    }
+
+    // Rank: direct m3u8/mp4 ahead of anything else.
+    streams.sort((a, b) => qualityScore(b) - qualityScore(a));
+
+    return { type: 'video', streams };
+  }
+
+  // ─── Internals ─────────────────────────────────────────────────────────────
+
+  private apiHeaders(): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      Referer: this.referer,
+      Origin: this.origin,
+      'User-Agent': ALLANIME_USER_AGENT,
+    };
+  }
+
+  private async fetchEpisodeSources(
+    showId: string,
+    episodeString: string,
+    lang: ContentLanguage,
+  ): Promise<Array<{ sourceUrl: string; sourceName?: string; priority?: number }>> {
+    const variables = { showId, translationType: lang, episodeString };
+    const extensions = {
+      persistedQuery: {
+        version: 1,
+        sha256Hash:
+          'd405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec',
+      },
+    };
+
+    const url = `${this.apiBase}?variables=${encodeURIComponent(
+      JSON.stringify(variables),
+    )}&extensions=${encodeURIComponent(JSON.stringify(extensions))}`;
+
+    const res = await this.http.get(url, { headers: this.apiHeaders() });
+    if (res.status !== 200) {
+      throw new Error(`Failed to load AllManga stream sources: ${res.status}`);
+    }
+    const json = (await res.json()) as any;
+
+    const tobeparsed: string | undefined = json?.data?.tobeparsed;
+    if (tobeparsed) {
+      return this.decryptTobeparsed(tobeparsed);
+    }
+
+    // Fallback to non-persisted GraphQL request
+    const fallbackQuery = `query ($showId: String!, $translationType: VaildTranslationTypeEnumType!, $episodeString: String!) { episode(showId: $showId translationType: $translationType episodeString: $episodeString) { episodeString sourceUrls } }`;
+    const fbRes = await this.http.post(
+      this.apiBase,
+      { variables, query: fallbackQuery },
+      { headers: this.apiHeaders() },
+    );
+    if (fbRes.status !== 200) {
+      throw new Error(
+        `AllManga fallback GraphQL failed with status ${fbRes.status}`,
+      );
+    }
+    const fbJson = (await fbRes.json()) as any;
+    return fbJson?.data?.episode?.sourceUrls ?? [];
+  }
+
+  private async decryptTobeparsed(blob: string): Promise<any[]> {
+    let binary: string;
+    try {
+      binary = atob(blob);
+    } catch {
+      const norm = blob.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = norm.length % 4;
+      binary = atob(pad ? norm + '='.repeat(4 - pad) : norm);
+    }
+    const data = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) data[i] = binary.charCodeAt(i);
 
     if (data.length < 30) {
       throw new Error(`tobeparsed blob too short (${data.length} bytes)`);
@@ -216,194 +275,192 @@ export class AllmangaProvider extends BaseProvider {
 
     const nonce = data.subarray(1, 13);
     const ciphertext = data.subarray(13, data.length - 16);
-
-    const keyPhraseBytes = new TextEncoder().encode("Xot36i3lK3:v1");
-    // Web Cryptography subtle digest
-    const subtle = globalThis.crypto.subtle;
-    const keyHash = await subtle.digest('SHA-256', keyPhraseBytes);
+    const keyBytes = new TextEncoder().encode(ALLANIME_KEY_PHRASE);
+    const keyHash = await globalThis.crypto.subtle.digest('SHA-256', keyBytes);
     const key = new Uint8Array(keyHash);
-
     const iv = new Uint8Array(16);
     iv.set(nonce, 0);
-    const view = new DataView(iv.buffer);
-    view.setUint32(12, 2, false); // big-endian counter starting at 2
+    new DataView(iv.buffer).setUint32(12, 2, false);
 
-    const decryptedBytes = await aesDecryptCtr(ciphertext, key, iv);
-    const decryptedStr = new TextDecoder().decode(decryptedBytes);
+    const decrypted = await aesDecryptCtr(ciphertext, key, iv);
+    const text = new TextDecoder().decode(decrypted);
+    const parsed = JSON.parse(text);
 
-    const parsed = JSON.parse(decryptedStr);
-    
-    if (parsed.episode && Array.isArray(parsed.episode.sourceUrls)) {
-      return parsed.episode.sourceUrls;
+    const sources =
+      parsed.episode?.sourceUrls ??
+      parsed.data?.episode?.sourceUrls ??
+      null;
+    if (!Array.isArray(sources)) {
+      throw new Error('No sourceUrls in decrypted tobeparsed payload');
     }
-    if (parsed.data && parsed.data.episode && Array.isArray(parsed.data.episode.sourceUrls)) {
-      return parsed.data.episode.sourceUrls;
-    }
-    throw new Error("No source URLs found in decrypted tobeparsed data");
+    return sources;
   }
 
-  /**
-   * Resolve streams for a unitId (format: showId/episodeString).
-   */
-  public async resolveStream(unitId: string, language?: ContentLanguage): Promise<ResolvedMediaStream> {
-    const parts = unitId.split('/');
-    if (parts.length < 2) {
-      throw new Error(`Invalid AllManga unit ID: ${unitId}`);
-    }
-    const showId = parts[0];
-    const episodeString = parts[1];
-    // Unit ID encodes language as 3rd segment (set during fetchContentUnits)
-    const unitLang = parts[2] as ContentLanguage | undefined;
-    const lang = language ?? unitLang ?? this.defaultLanguage;
+  private async extractSource(
+    src: { sourceUrl: string; sourceName?: string },
+    lang: ContentLanguage,
+  ): Promise<IVideoPayload[]> {
+    let raw = src.sourceUrl;
+    if (!raw) return [];
 
-    const variables = {
-      showId,
-      translationType: lang,
-      episodeString
+    // XOR-decode obfuscated AllAnime API paths (Luf-Mp4, S-mp4, Default, ...)
+    if (raw.startsWith('--')) {
+      raw = decodeAllAnimeSource(raw);
+      if (raw.startsWith('/')) raw = this.apiHost + raw;
+    }
+    if (raw.startsWith('//')) raw = 'https:' + raw;
+
+    const headers = {
+      Referer: this.referer,
+      'User-Agent': ALLANIME_USER_AGENT,
     };
 
-    const extensions = {
-      persistedQuery: {
-        version: 1,
-        sha256Hash: "d405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec"
-      }
-    };
-
-    const queryUrl = `${this.apiBase}?variables=${encodeURIComponent(JSON.stringify(variables))}&extensions=${encodeURIComponent(JSON.stringify(extensions))}`;
-
-    const response = await this.http.get(queryUrl, {
-      headers: {
-        'Origin': this.origin,
-        'Referer': this.referer,
-        'User-Agent': this.userAgent
-      }
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`Failed to load AllManga stream sources: ${response.status}`);
+    // 1. Internal AllAnime clock.json: returns JSON with `links` array.
+    if (raw.includes('/clock.json')) {
+      return this.resolveClockJson(raw, lang);
     }
 
-    const json = await response.json() as any;
-    const tobeparsed = json?.data?.tobeparsed;
-    if (!tobeparsed) {
-      throw new Error(`Missing tobeparsed encrypted payload from AllManga response`);
-    }
-
-    const sourceUrls = await this.decryptTobeparsed(tobeparsed);
-    const videoSources: IVideoPayload[] = [];
-
-    const clockPromises = sourceUrls.map(async (src) => {
-      let rawUrl = src.sourceUrl || '';
-      if (!rawUrl) return [];
-
-      if (rawUrl.startsWith('--')) {
-        rawUrl = decodeSourceURL(rawUrl.substring(2));
-      }
-
-      if (rawUrl.startsWith('//')) {
-        rawUrl = 'https:' + rawUrl;
-      }
-
-      if (rawUrl.includes('/clock.json')) {
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 4000);
-          
-          const clockRes = await this.http.get(rawUrl, {
-            headers: {
-              'Referer': this.referer,
-              'User-Agent': this.userAgent
-            },
-            signal: controller.signal as any
-          });
-          clearTimeout(timer);
-
-          if (clockRes.status === 200) {
-            const clockJson = await clockRes.json() as any;
-            const links = clockJson.links || [];
-            const localSources: IVideoPayload[] = [];
-            for (const item of links) {
-              const link = item.link || '';
-              if (!link) continue;
-
-              if (link.includes('repackager.wixmp.com')) {
-                const wixmpMatch = link.match(/\/,(.*?),\/mp4/);
-                if (wixmpMatch) {
-                  const qualities = wixmpMatch[1].split(',');
-                  const cleanBase = link.replace('repackager.wixmp.com/', '').replace(/\.urlset\/master\.m3u8$/, '');
-                  for (const q of qualities) {
-                    const streamUrl = cleanBase.replace(`/,${wixmpMatch[1]},/mp4/`, `/${q}/mp4/`);
-                    let qualityLabel: '1080p' | '720p' | '360p' | 'auto' = 'auto';
-                    if (q.includes('1080')) qualityLabel = '1080p';
-                    else if (q.includes('720')) qualityLabel = '720p';
-                    else if (q.includes('480') || q.includes('360')) qualityLabel = '360p';
-
-                    localSources.push({
-                      sourceUrl: streamUrl,
-                      isHLS: false,
-                      quality: qualityLabel,
-                      headers: { Referer: this.referer }
-                    });
-                  }
-                } else {
-                  localSources.push({
-                    sourceUrl: link,
-                    isHLS: true,
-                    quality: 'auto',
-                    headers: { Referer: this.referer }
-                  });
-                }
-              } else {
-                localSources.push({
-                  sourceUrl: link,
-                  isHLS: item.hls || link.includes('.m3u8'),
-                  quality: 'auto',
-                  headers: { Referer: this.referer }
-                });
-              }
-            }
-            return localSources;
-          }
-        } catch (e) {
-          // ignore clock request errors or timeouts
-        }
-        return [];
-      } else {
-        const payload: IVideoPayload = {
-          sourceUrl: rawUrl,
-          isHLS: rawUrl.includes('.m3u8'),
+    // 2. Direct media (m3u8 / mp4)
+    if (/\.m3u8(?:\?|$)/.test(raw) || /\.mp4(?:\?|$)/.test(raw)) {
+      return [
+        {
+          sourceUrl: raw,
+          isHLS: raw.includes('.m3u8'),
           quality: 'auto',
-          headers: { Referer: this.referer }
-        };
-        return [payload];
+          language: lang,
+          headers,
+        },
+      ];
+    }
+
+    // 3. Yt-mp4 alias: tools.fast4speed.rsvp gives direct mp4
+    if (raw.includes('tools.fast4speed.rsvp')) {
+      return [
+        {
+          sourceUrl: raw,
+          isHLS: false,
+          quality: 'auto',
+          language: lang,
+          headers,
+        },
+      ];
+    }
+
+    // 4. Mp4Upload embed page - extract direct mp4 URL
+    if (Mp4UploadExtractor.matches(raw)) {
+      return this.mp4UploadExtractor.extract(raw);
+    }
+
+    // 5. Best-effort generic HLS/MP4 extraction from embed pages
+    //    (handles vibeplayer.site, otakuvid.online, bibiemb.xyz patterns)
+    try {
+      const extracted = await this.genericExtractor.extract(raw);
+      if (extracted.length > 0) {
+        return extracted.map((p) => ({ ...p, language: lang }));
       }
-    });
-
-    const results = await Promise.all(clockPromises);
-    for (const r of results) {
-      videoSources.push(...r);
+    } catch {
+      /* fall through */
     }
 
-    if (videoSources.length === 0) {
-      throw new Error(`Failed to extract any playback streams for AllManga episode: ${unitId}`);
-    }
-
-    // Sort sources so that direct wixstatic / MP4 / HLS streams are prioritized first
-    videoSources.sort((a, b) => {
-      const getScore = (url: string) => {
-        if (url.includes('wixstatic.com')) return 100;
-        if (url.includes('.m3u8')) return 90;
-        if (url.includes('.mp4')) return 80;
-        if (url.includes('sharepoint.com')) return 70;
-        if (url.includes('ok.ru')) return 10;
-        return 0;
-      };
-      return getScore(b.sourceUrl) - getScore(a.sourceUrl);
-    });
-
-    return {
-      type: 'video',
-      streams: videoSources
-    };
+    // Could not extract; skip this source rather than returning a useless embed URL
+    return [];
   }
+
+  private async resolveClockJson(
+    url: string,
+    lang: ContentLanguage,
+  ): Promise<IVideoPayload[]> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await this.http.get(url, {
+        headers: {
+          Referer: this.referer,
+          'User-Agent': ALLANIME_USER_AGENT,
+        },
+        signal: controller.signal as any,
+      });
+      clearTimeout(timer);
+      if (res.status !== 200) {
+        throw new Error(`clock.json returned ${res.status}`);
+      }
+      const json = (await res.json()) as any;
+      const links = json.links ?? [];
+      const out: IVideoPayload[] = [];
+
+      for (const item of links) {
+        const link = item.link as string | undefined;
+        if (!link) continue;
+
+        // Wixmp packager → expand quality variants
+        if (link.includes('repackager.wixmp.com')) {
+          const m = link.match(/\/,([^/]+),\/mp4/);
+          if (m) {
+            const qualities = m[1].split(',');
+            const cleanBase = link
+              .replace('repackager.wixmp.com/', '')
+              .replace(/\.urlset\/master\.m3u8$/, '');
+            for (const q of qualities) {
+              const streamUrl = cleanBase.replace(
+                `/,${m[1]},/mp4/`,
+                `/${q}/mp4/`,
+              );
+              out.push({
+                sourceUrl: streamUrl,
+                isHLS: false,
+                quality: mapQuality(q),
+                language: lang,
+                headers: { Referer: this.referer },
+              });
+            }
+            continue;
+          }
+          out.push({
+            sourceUrl: link,
+            isHLS: true,
+            quality: 'auto',
+            language: lang,
+            headers: { Referer: this.referer },
+          });
+          continue;
+        }
+
+        out.push({
+          sourceUrl: link,
+          isHLS: !!item.hls || link.includes('.m3u8'),
+          quality: mapQuality(item.resolutionStr ?? ''),
+          language: lang,
+          headers: { Referer: this.referer },
+        });
+      }
+      return out;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+function mapQuality(label: string): IVideoPayload['quality'] {
+  const s = String(label).toLowerCase();
+  if (s.includes('1080')) return '1080p';
+  if (s.includes('720')) return '720p';
+  if (s.includes('480')) return '480p';
+  if (s.includes('360')) return '360p';
+  return 'auto';
+}
+
+function qualityScore(p: IVideoPayload): number {
+  let s = 0;
+  // Provider-priority: mp4upload direct mp4 → wixstatic mp4 → m3u8 → other.
+  if (/\/video\.mp4(?:[?#]|$)/.test(p.sourceUrl)) s += 30;
+  if (p.sourceUrl.includes('wixstatic.com')) s += 25;
+  if (p.sourceUrl.includes('mp4upload.com')) s += 20;
+  if (/\.m3u8(?:[?#]|$)/.test(p.sourceUrl)) s += 15;
+  if (/\.mp4(?:[?#]|$)/.test(p.sourceUrl)) s += 10;
+  if (p.sourceUrl.includes('okcdn.ru') && p.isHLS) s += 5;
+  if (p.quality === '1080p') s += 4;
+  else if (p.quality === '720p') s += 3;
+  else if (p.quality === '480p') s += 2;
+  else if (p.quality === '360p') s += 1;
+  return s;
 }
