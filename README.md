@@ -1,123 +1,142 @@
-# ani-sdk — Universal Anime Scraper SDK
+# ani-sdk
 
-A small, typed, dependency-light TypeScript SDK for searching anime, listing
-episodes, and resolving direct stream URLs across multiple providers. Each
-provider is wired to its own scraping path and the SDK ships with a handful of
-generic embed extractors (`Mp4Upload`, `Blogger`, `Vidstreaming`,
-`GenericHls`) you can reuse outside of providers.
+A small TypeScript SDK for searching anime, listing episodes, and resolving
+direct stream URLs. Three providers, a handful of reusable embed extractors,
+and a pluggable HTTP transport.
 
-## Status
+## Providers
 
-All three providers below are exercised by live E2E tests; each test runs the
-full pipeline (search → fetchContentUnits → resolveStream) and validates the
-result by pulling a real frame ~5 seconds into the stream with ffmpeg.
+| ID           | Site           | Languages    | What it scrapes                                                   |
+|--------------|----------------|--------------|-------------------------------------------------------------------|
+| `allmanga`   | `allmanga.to`  | sub, dub     | AllAnime GraphQL → AES-CTR `tobeparsed` payload → Mp4Upload extractor (with `clock.json` fallback for the wixmp/sharepoint sources). |
+| `gogoanime`  | `anineko.to`   | sub          | Page scraping; the screenshot helper handles the vibeplayer embed → `master.m3u8`. |
+| `goyabu`     | `goyabu.io`    | pt-br (dub)  | Pulls the Blogger token from `playersData`, then calls Google's `batchexecute` endpoint to recover the `googlevideo.com` URL. |
 
-| Provider ID  | Site              | Notes                                                                                  |
-|--------------|-------------------|----------------------------------------------------------------------------------------|
-| `allmanga`   | `allmanga.to`     | AllAnime GraphQL + tobeparsed AES-CTR decryption + XOR source decoding + Mp4Upload extractor. |
-| `gogoanime`  | `anineko.to`      | Direct page scraping; embed URLs are extracted on the screenshot side.                |
-| `goyabu`     | `goyabu.io`       | Pulls the Blogger token, then calls Google's `batchexecute` for googlevideo URLs.     |
+Every provider has a live E2E test that searches, picks an episode, resolves
+the stream, and captures a real video frame ~5s in with ffmpeg.
 
-### Why this is a smaller list than the previous attempt
+### What used to be here
 
-The earlier revision exposed `AnimePahe`, `HiAnimes`, `AnimeFire`, and
-`SuperFlix`. They are removed:
+The earlier draft also shipped `AnimePahe`, `HiAnimes`, `AnimeFire`, and
+`SuperFlix`. They were removed because each is broken from this network in a
+different way:
 
-| Removed provider | Why                                                                                                     |
-|------------------|---------------------------------------------------------------------------------------------------------|
-| `AnimePahe`      | Search and episodes work via FlareSolverr, but `kwik.cx` (the actual stream host) returns Cloudflare-banned for our IP. Even with a real browser FlareSolverr fails the challenge — `Cloudflare has blocked this request`. |
-| `HiAnimes`       | The `/ajax/search` and `/ajax/v2/episode/...` JSON endpoints don't exist on `hianimes.se` anymore — every URL now serves the SPA shell. The provider would have to be reverse-engineered against the new in-browser API. |
-| `AnimeFire`      | `animefire.plus` is Cloudflare-protected; FlareSolverr can't get a clearance cookie from our IP. |
-| `SuperFlix`      | Different surface — `superflixapi.fit` is now a live-action site behind Turnstile; the previous Turnstile-iframe extraction path is dead. |
+| Provider     | Reason                                                                                                                             |
+|--------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `AnimePahe`  | Search + episode list work via FlareSolverr, but `kwik.cx` (the stream host) returns *Cloudflare has blocked this request* even with a real browser session. |
+| `HiAnimes`   | `hianimes.se` moved to an SPA — `/ajax/search` and `/ajax/v2/episode/*` return the full HTML shell, not JSON.                       |
+| `AnimeFire`  | `animefire.plus` 403s through FlareSolverr (CF clearance never issued for our IP range).                                            |
+| `SuperFlix`  | Different surface now: `superflixapi.fit` is a live-action library behind Turnstile, and the old `id="embedCode"` iframe scrape doesn't match. |
 
-These are documented (not silently swept under a "skipped" test) so anyone
-revisiting from a different network can re-enable them.
+Anyone on a different network can revive them by reimplementing against the
+current upstream. The architecture below is what they'd plug into.
 
 ## Architecture
 
 ```
 src/
 ├── transport/
-│   ├── http.ts              # HttpClient — fetch + curl fallback
-│   ├── flaresolverr.ts      # Optional Cloudflare bypass proxy
-│   ├── dom.ts               # Pluggable DOMParser registry (linkedom in tests)
-│   └── hlsUtils.ts          # Rewrite m3u8 chunk URLs through a proxy
+│   ├── http.ts              HttpClient: fetch + curl fallback, proxy routing
+│   ├── flaresolverr.ts      FlareSolverrClient: optional CF/DDoS-Guard bypass
+│   ├── dom.ts               Pluggable DOMParser (linkedom in Node)
+│   └── hlsUtils.ts          Rewrite m3u8 chunk URLs through a proxy
 ├── extractors/
-│   ├── BaseExtractor.ts
-│   ├── Mp4UploadExtractor.ts        # Direct mp4 URL from www.mp4upload.com
-│   ├── BloggerExtractor.ts          # Google batchexecute → googlevideo URLs
-│   ├── VidstreamingExtractor.ts     # Legacy Gogo encrypt-ajax flow
-│   └── GenericHlsExtractor.ts       # Best-effort m3u8/mp4 from embed pages
+│   ├── Mp4UploadExtractor   Direct mp4 from www.mp4upload.com
+│   ├── BloggerExtractor     Google batchexecute → googlevideo URLs
+│   ├── VidstreamingExtractor  Legacy Gogo encrypt-ajax flow
+│   └── GenericHlsExtractor  Best-effort m3u8/mp4 scrape from an embed page
 ├── providers/
-│   ├── BaseProvider.ts
-│   ├── AllmangaProvider.ts
-│   ├── GogoanimeProvider.ts
-│   └── GoyabuProvider.ts
-├── types/index.ts            # IMediaSearchResult, IContentUnit, ResolvedMediaStream, ...
-└── utils/crypto.ts           # AES-CBC + AES-CTR helpers
+│   ├── AllmangaProvider
+│   ├── GogoanimeProvider
+│   └── GoyabuProvider
+├── types/index.ts           IMediaSearchResult, IContentUnit, ResolvedMediaStream, …
+└── utils/crypto.ts          AES-CBC + AES-CTR helpers
 ```
 
-## Getting started
+A provider is just a class with `search`, `fetchContentUnits`, and
+`resolveStream`. Extractors are stateless and take a `HttpClient`, so you can
+mix and match (or use the extractors on their own).
+
+## Usage
 
 ```ts
 import { HttpClient, AllmangaProvider } from 'ani-sdk';
 import { DOMParser as LinkeDomParser } from 'linkedom';
 
-// linkedom plugs in a DOMParser for Node — required for providers that scrape HTML.
+// Most providers scrape HTML, which needs a DOMParser in Node.
 if (typeof globalThis.DOMParser === 'undefined') {
   (globalThis as any).DOMParser = LinkeDomParser;
 }
 
-const http = new HttpClient({ timeoutMs: 25000 });
+const http = new HttpClient({ timeoutMs: 25_000 });
 const provider = new AllmangaProvider(http);
 
 const results = await provider.search('Frieren');
-const target = results.find((r) => r.title.toLowerCase().includes('beyond journey'));
+const target = results.find((r) =>
+  r.title.toLowerCase().includes("beyond journey's end")
+)!;
+
 const units = await provider.fetchContentUnits(target.id, 'sub');
 const stream = await provider.resolveStream(units[0].id);
 
 if (stream.type === 'video') {
-  console.log('Top stream:', stream.streams[0].sourceUrl);
+  // streams are sorted best-first; iterate if the top one 4xx's.
+  for (const s of stream.streams) {
+    console.log(s.quality, s.isHLS ? 'HLS' : 'MP4', s.sourceUrl);
+  }
 }
 ```
 
-`stream.streams` is sorted best-first. Iterate it if the first candidate
-returns 4xx — different embed hosts have different reliability windows.
+### Direct extractor use
 
-## E2E tests
+Extractors work standalone — hand them an embed URL from any source and
+they'll return a list of `IVideoPayload` (or an empty array if they can't
+recover a direct stream).
+
+```ts
+import { HttpClient, BloggerExtractor } from 'ani-sdk';
+
+const blogger = new BloggerExtractor(new HttpClient());
+const streams = await blogger.extract(
+  'https://www.blogger.com/video.g?token=AD6v5dw…',
+);
+```
+
+## Tests
 
 ```bash
-# All tests, including live e2e (~60s total against allmanga.to, anineko.to, goyabu.io)
+# Everything (unit + live e2e, ~60s total)
 npx vitest run
 
-# Just the e2e suite
+# Just the live providers
 npx vitest run tests/e2e
 ```
 
-Each e2e test:
-1. Searches a popular show (`Frieren` for sub/dub providers, `Naruto` for the
-   PT-BR provider).
-2. Picks a mainline title.
-3. Resolves a stream and walks the candidate list with
-   `captureStreamScreenshot()`. The helper:
-   - probes a URL with a Range GET to distinguish embed pages from direct
-     video bytes,
+The E2E suite is intentionally not mocked. Each test:
+
+1. Searches a popular title (`Frieren` for AllManga/Gogoanime, `Naruto`
+   Clássico for Goyabu).
+2. Picks a mainline entry, fetches episodes, resolves a stream.
+3. Walks the candidate list via `captureStreamScreenshot`, which:
+   - probes a URL with a Range GET (Content-Type + MP4 `ftyp` magic) to tell
+     embed pages from direct video bytes,
    - scrapes embed HTML for an `.m3u8`/`.mp4` URL when needed,
-   - downloads an HLS segment ~5s in and runs ffmpeg locally on it (PNG-wrapped
-     segments are stripped), or
-   - hands the URL straight to ffmpeg with `-user_agent`/`-referer` for plain
-     MP4 sources.
-4. Asserts ffmpeg produced a real screenshot (>1KB).
+   - downloads an HLS segment ~5s in and runs ffmpeg locally on it
+     (PNG-wrapped segments are stripped before decoding), or
+   - hands plain MP4 URLs straight to ffmpeg with `-user_agent`/`-referer`,
+4. Asserts the resulting PNG is >1KB before passing.
 
 Screenshots land in `scratch/screenshots/screenshot_<provider>.png`.
+`scratch/` is gitignored.
 
 ## Requirements
 
-- Node 20+ (the SDK uses `fetch`, `globalThis.crypto.subtle`, top-level await
-  in tests).
-- `ffmpeg` on `PATH` for e2e tests.
-- `linkedom` is a dev-time dep that registers a Node DOMParser for scraping
-  tests.
+- Node 20+ (uses `fetch`, `globalThis.crypto.subtle`, top-level await in
+  tests).
+- `ffmpeg` on `PATH` for the E2E suite.
+- `linkedom` as a dev dep — registers a Node-side `DOMParser`.
+- FlareSolverr (optional) for any provider you write that needs CF bypass;
+  see `FLARESOLVERR.md` and `docker-compose.yml`.
 
 ## License
 
