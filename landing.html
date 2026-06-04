@@ -749,13 +749,21 @@ console<span class="pun">.</span><span class="fn">log</span><span class="pun">(<
   <span class="str">--restart</span> unless-stopped \
   ghcr.io/flaresolverr/flaresolverr:latest</code></pre>
             <p class="text-[12px] mt-4" style="color: var(--muted)">
-              None of the bundled providers currently use FlareSolverr — the
-              CF-gated ones were dropped.
+              Standalone transport for writing providers against
+              CF-protected sites.
               <code
                 class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
                 >FlareSolverrClient</code
               >
-              is still exported for custom providers; see
+              exposes
+              <code
+                class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
+                >get</code
+              >/<code
+                class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
+                >post</code
+              >
+              with cookie reuse; see
               <code
                 class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
                 >FLARESOLVERR.md</code

@@ -15,22 +15,6 @@ and a pluggable HTTP transport.
 Every provider has a live E2E test that searches, picks an episode, resolves
 the stream, and captures a real video frame ~5s in with ffmpeg.
 
-### What used to be here
-
-The earlier draft also shipped `AnimePahe`, `HiAnimes`, `AnimeFire`, and
-`SuperFlix`. They were removed because each is broken from this network in a
-different way:
-
-| Provider     | Reason                                                                                                                             |
-|--------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `AnimePahe`  | Search + episode list work via FlareSolverr, but `kwik.cx` (the stream host) returns *Cloudflare has blocked this request* even with a real browser session. |
-| `HiAnimes`   | `hianimes.se` moved to an SPA — `/ajax/search` and `/ajax/v2/episode/*` return the full HTML shell, not JSON.                       |
-| `AnimeFire`  | `animefire.plus` 403s through FlareSolverr (CF clearance never issued for our IP range).                                            |
-| `SuperFlix`  | Different surface now: `superflixapi.fit` is a live-action library behind Turnstile, and the old `id="embedCode"` iframe scrape doesn't match. |
-
-Anyone on a different network can revive them by reimplementing against the
-current upstream. The architecture below is what they'd plug into.
-
 ## Architecture
 
 ```

@@ -3,13 +3,8 @@
 `FlareSolverrClient` is a thin wrapper around
 [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) — a Docker
 container that drives a headless Chrome to solve Cloudflare and DDoS-Guard
-challenges. The SDK exposes it as an opt-in transport.
-
-> **None of the bundled providers currently use FlareSolverr.** The CF-gated
-> providers (AnimePahe, HiAnimes, AnimeFire, SuperFlix) were removed because
-> they're broken from this network even with FlareSolverr in front — see
-> `README.md` for the breakdown. The client is kept because the wrapper is
-> small and useful for writing your own provider against a CF-protected site.
+challenges. The SDK exposes it as a standalone transport you can drop into
+your own provider when the target site is CF-protected.
 
 ## Running it
 
