@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@astrojs/react": "^3.6.0",
+    "@astrojs/starlight": "^0.28.6",
     "astro": "^4.16.0",
     "motion": "^12.40.0",
     "react": "^19.0.0",

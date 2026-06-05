@@ -101,7 +101,7 @@ export class FlareSolverrClient {
     options: {
       headers?: Record<string, string>;
       cookies?: Array<{ name: string; value: string; domain?: string }>;
-    } = {}
+    } = {},
   ): Promise<FlareSolverrResponse> {
     return this._solve('request.get', url, undefined, options);
   }
@@ -115,12 +115,10 @@ export class FlareSolverrClient {
     options: {
       headers?: Record<string, string>;
       cookies?: Array<{ name: string; value: string; domain?: string }>;
-    } = {}
+    } = {},
   ): Promise<FlareSolverrResponse> {
     const postBody =
-      typeof postData === 'string'
-        ? postData
-        : new URLSearchParams(postData).toString();
+      typeof postData === 'string' ? postData : new URLSearchParams(postData).toString();
 
     return this._solve('request.post', url, postBody, options);
   }
@@ -132,7 +130,7 @@ export class FlareSolverrClient {
     options: {
       headers?: Record<string, string>;
       cookies?: Array<{ name: string; value: string; domain?: string }>;
-    } = {}
+    } = {},
   ): Promise<FlareSolverrResponse> {
     const body: Record<string, any> = {
       cmd,
@@ -172,7 +170,7 @@ export class FlareSolverrClient {
     if (!rawResponse.ok) {
       const errText = await rawResponse.text().catch(() => '');
       throw new Error(
-        `FlareSolverr API error: HTTP ${rawResponse.status}${errText ? ` — ${errText.slice(0, 200)}` : ''}`
+        `FlareSolverr API error: HTTP ${rawResponse.status}${errText ? ` — ${errText.slice(0, 200)}` : ''}`,
       );
     }
 
@@ -206,7 +204,9 @@ export class FlareSolverrClient {
           }
           return JSON.parse(trimmed);
         } catch (e) {
-          throw new Error(`FlareSolverrResponse.json(): Body is not valid JSON: ${(e as Error).message}`);
+          throw new Error(
+            `FlareSolverrResponse.json(): Body is not valid JSON: ${(e as Error).message}`,
+          );
         }
       },
     };

@@ -21,6 +21,7 @@ Requires Node 20+ and `ffmpeg` on `PATH` (E2E suite shells out to it).
 The SDK has three layers, all wired around a single `HttpClient`:
 
 **1. Transport (`src/transport/`)** — site-agnostic plumbing.
+
 - `HttpClient` wraps `fetch` with a **curl fallback** that fires automatically on Node when `fetch` errors out (timeout, TLS quirks, anti-bot rejection). The fallback synthesizes a `Response`-shaped object so callers don't see the difference. It also supports two proxy routing modes (`prepend` puts the proxy in front of `host/path`; `query` passes the URL as a query param) — `requestUrl(url)` is the single chokepoint for that rewrite.
 - `DomRegistry` is a global single-parser registry. `BrowserDomParser` works in browsers; in Node, consumers (and the E2E tests' `beforeAll`) must shim `globalThis.DOMParser` via `linkedom` before any provider parses HTML. Providers call `DomRegistry.parse(html)` — they never touch `DOMParser` directly.
 - `HlsUtils.rewriteManifest` rewrites every URI line in an `.m3u8` (including `URI="…"` inside `#EXT-X-KEY` / `#EXT-X-MAP`) so chunk fetches go through the same proxy as the manifest fetch.
@@ -29,6 +30,7 @@ The SDK has three layers, all wired around a single `HttpClient`:
 **2. Extractors (`src/extractors/`)** — stateless, take only an embed URL and an `HttpClient`, return `IVideoPayload[]` (empty if they can't recover a direct stream). `BaseExtractor` is the contract. They're independently usable — a consumer can hand any embed URL to `BloggerExtractor` without involving a provider.
 
 **3. Providers (`src/providers/`)** — site-specific. `BaseProvider` defines `search` → `fetchContentUnits(mediaId, language?)` → `resolveStream(unitId, language?)`. `ContentLanguage` is `'sub' | 'dub' | 'raw'`; providers that don't support a language fall back to `'sub'`. Each provider composes one or more extractors:
+
 - `AllmangaProvider` — AllAnime GraphQL → AES-CTR-decrypted `tobeparsed` payload → `Mp4UploadExtractor`, with a `clock.json` fallback for wixmp/sharepoint sources. Source URLs are obfuscated with a `--<hex>` scheme XOR'd with `0x38`; see `decodeAllAnimeSource`.
 - `GogoanimeProvider` — HTML scrape of `anineko.to`; vibeplayer embed → `master.m3u8` via `GenericHlsExtractor`.
 - `GoyabuProvider` — pulls a Blogger token from `playersData`, calls Google `batchexecute` to recover the `googlevideo.com` URL via `BloggerExtractor`.
@@ -49,6 +51,7 @@ All public surface is re-exported from `src/index.ts`.
 ## Provider/extractor additions
 
 When adding a provider:
+
 - Extend `BaseProvider`, set `id` and `supportedTypes`, accept `HttpClient` in the constructor.
 - Compose existing extractors where possible; only add a new extractor if the embed format is genuinely novel.
 - Re-export from `src/index.ts`.

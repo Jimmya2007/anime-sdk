@@ -65,10 +65,7 @@ function fetchHeaders(headers: Record<string, string>): Record<string, string> {
 
 // ─── Core capture: one URL → one screenshot ─────────────────────────────────
 
-async function captureFromUrl(
-  outputPath: string,
-  payload: IVideoPayload,
-): Promise<void> {
+async function captureFromUrl(outputPath: string, payload: IVideoPayload): Promise<void> {
   const headers = payload.headers ?? {};
   let target = payload.sourceUrl;
   let isHls = payload.isHLS;
@@ -77,10 +74,7 @@ async function captureFromUrl(
   // may not have a `.mp4`/`.m3u8` extension but still serves video bytes. If a
   // GET-with-Range succeeds and returns video bytes, treat it as direct.
   // Otherwise fall back to scraping the HTML for an embedded stream URL.
-  const looksDirect =
-    /\.m3u8(?:[?#]|$)/i.test(target) ||
-    /\.mp4(?:[?#]|$)/i.test(target) ||
-    isHls;
+  const looksDirect = /\.m3u8(?:[?#]|$)/i.test(target) || /\.mp4(?:[?#]|$)/i.test(target) || isHls;
 
   if (!looksDirect) {
     const probed = await probeIsVideoBytes(target, headers);
@@ -88,9 +82,7 @@ async function captureFromUrl(
       // Fetch as HTML and look for an embedded stream URL.
       const direct = await scrapeEmbedForStream(target, headers);
       if (!direct) {
-        throw new Error(
-          `No direct stream URL found in embed page (${target.slice(0, 120)})`,
-        );
+        throw new Error(`No direct stream URL found in embed page (${target.slice(0, 120)})`);
       }
       target = direct.url;
       isHls = direct.isHls;
@@ -105,10 +97,7 @@ async function captureFromUrl(
 }
 
 /** Returns true if the URL serves binary video content via Range probe. */
-async function probeIsVideoBytes(
-  url: string,
-  headers: Record<string, string>,
-): Promise<boolean> {
+async function probeIsVideoBytes(url: string, headers: Record<string, string>): Promise<boolean> {
   try {
     const res = await fetch(url, {
       method: 'GET',
@@ -224,12 +213,16 @@ async function captureFromHls(
   fs.writeFileSync(tmpSeg, bytes);
   try {
     const seek = target.duration > 2 ? '00:00:02' : '00:00:00';
-    execSync(
-      `ffmpeg -y -ss ${seek} -i "${tmpSeg}" -frames:v 1 -q:v 2 "${outputPath}"`,
-      { stdio: 'pipe', timeout: 25000 },
-    );
+    execSync(`ffmpeg -y -ss ${seek} -i "${tmpSeg}" -frames:v 1 -q:v 2 "${outputPath}"`, {
+      stdio: 'pipe',
+      timeout: 25000,
+    });
   } finally {
-    try { fs.unlinkSync(tmpSeg); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(tmpSeg);
+    } catch {
+      /* ignore */
+    }
   }
 
   if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size < 1024) {
@@ -263,9 +256,7 @@ async function captureFromMp4(
   });
   const headerArg =
     remaining.length > 0
-      ? `-headers ${JSON.stringify(
-          remaining.map(([k, v]) => `${k}: ${v}`).join('\r\n') + '\r\n',
-        )}`
+      ? `-headers ${JSON.stringify(remaining.map(([k, v]) => `${k}: ${v}`).join('\r\n') + '\r\n')}`
       : '';
 
   execSync(
@@ -317,7 +308,11 @@ export async function captureStreamScreenshot(
   const outputPath = path.join(localDir, `screenshot_${providerId}.png`);
   // Clear any stale screenshot from a previous run.
   if (fs.existsSync(outputPath)) {
-    try { fs.unlinkSync(outputPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(outputPath);
+    } catch {
+      /* ignore */
+    }
   }
 
   const errors: string[] = [];

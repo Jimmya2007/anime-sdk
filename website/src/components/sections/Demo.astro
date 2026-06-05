@@ -1,6 +1,5 @@
 ---
 const gogoanimeCode = `<code><span class="kw">import</span> <span class="pun">{</span> <span class="typ">HttpClient</span><span class="pun">,</span> <span class="typ">GogoanimeProvider</span> <span class="pun">}</span> <span class="kw">from</span> <span class="str">'ani-sdk'</span><span class="pun">;</span>
-<span class="kw">import</span> <span class="pun">{</span> <span class="typ">DOMParser</span> <span class="kw">as</span> <span class="typ">LinkeDomParser</span> <span class="pun">}</span> <span class="kw">from</span> <span class="str">'linkedom'</span><span class="pun">;</span>
 
 <span class="kw">const</span> provider <span class="pun">=</span> <span class="kw">new</span> <span class="fn">GogoanimeProvider</span><span class="pun">(</span>
   <span class="kw">new</span> <span class="fn">HttpClient</span><span class="pun">({</span> timeoutMs<span class="pun">:</span> <span class="num">10_000</span> <span class="pun">})</span>
@@ -15,48 +14,33 @@ const gogoanimeCode = `<code><span class="kw">import</span> <span class="pun">{<
 ---
 
 <section id="demo">
-  <div class="hline py-8 px-10">
-    <h2 class="text-[28px] font-bold tracking-tight mb-1">
-      From search to stream in three calls.
-    </h2>
+  <div class="hline px-10 py-8">
+    <h2 class="mb-1 text-[28px] font-bold tracking-tight">Setup in minutes.</h2>
     <p class="text-[14px]" style="color: var(--muted);">
-      Every provider exposes{" "}
-      <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
-        >search</code
-      >
-      {" → "}
-      <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
-        >fetchContentUnits</code
-      >
-      {" → "}
-      <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
-        >resolveStream</code
-      >
+      Every provider exposes{' '}
+      <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">search</code>
+      {' → '}
+      <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">fetchContentUnits</code>
+      {' → '}
+      <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">resolveStream</code>
       . Swap the provider, the three calls don't change.
     </p>
   </div>
 
   <div class="hline">
     <div class="cell no-right no-bottom show-dots px-10 py-9">
-      <div class="flex items-center gap-3 mb-5">
+      <div class="mb-5 flex items-center gap-3">
         <span class="badge badge-ok">Provider · gogoanime</span>
-        <span class="text-[11px] font-mono" style="color: var(--muted);"
-          >example.ts</span
-        >
+        <span class="font-mono text-[11px]" style="color: var(--muted);">example.ts</span>
       </div>
-      <pre
-        class="text-[12px] font-mono leading-[1.85] text-zinc-300"
-        set:html={gogoanimeCode}
-      />
-      <p class="text-[12px] mt-5" style="color: var(--muted);">
-        Want sub/dub? Pass{" "}
-        <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
+      <pre class="font-mono text-[12px] leading-[1.85] text-zinc-300" set:html={gogoanimeCode} />
+      <p class="mt-5 text-[12px]" style="color: var(--muted);">
+        Want sub/dub? Pass{' '}
+        <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]"
           >'sub' | 'dub' | 'raw'</code
         >
-        {" "}to{" "}
-        <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono"
-          >resolveStream</code
-        >
+        {' '}to{' '}
+        <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">resolveStream</code>
         . Need a different source? Swap the provider — same three calls.
       </p>
     </div>

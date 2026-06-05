@@ -9,11 +9,22 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "linkedom": "^0.18.12"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs,astro,css,json,md,mdx}": "prettier --write"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
-    "linkedom": "^0.18.12",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.3",
+    "prettier-plugin-astro": "^0.14.1",
+    "prettier-plugin-tailwindcss": "^0.8.0",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   }

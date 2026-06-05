@@ -1,4 +1,12 @@
+import { DOMParser as LinkedomParser } from 'linkedom';
 import { IDomElement, IDomParser } from '../types/index.js';
+
+// Auto-register linkedom in environments without a native DOMParser (Node, Bun).
+// Skipped if a native DOMParser is present (browsers) or a custom one was already
+// set, so DomRegistry.register() still takes full precedence.
+if (typeof globalThis.DOMParser === 'undefined') {
+  (globalThis as any).DOMParser = LinkedomParser;
+}
 
 export class BrowserDomElement implements IDomElement {
   constructor(private element: Element) {}
@@ -34,7 +42,7 @@ export class BrowserDomParser implements IDomParser {
   public parse(html: string): IDomElement {
     if (typeof globalThis.DOMParser === 'undefined') {
       throw new Error(
-        'DOMParser is not available in this environment. Please register a custom DOM Parser via DomRegistry.register().'
+        'DOMParser is not available in this environment. Please register a custom DOM Parser via DomRegistry.register().',
       );
     }
     const parser = new globalThis.DOMParser();

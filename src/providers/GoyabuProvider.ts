@@ -27,7 +27,7 @@ export class GoyabuProvider extends BaseProvider {
     }
     if (!this.http.getDefaultHeaders()['User-Agent']) {
       this.http.setUserAgent(
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       );
     }
     this.bloggerExtractor = new BloggerExtractor(http);
@@ -61,8 +61,9 @@ export class GoyabuProvider extends BaseProvider {
       if (!href || !href.includes('/anime/')) continue;
 
       const id = href.startsWith('http') ? new URL(href).pathname : href;
-      
-      const titleElem = card.querySelector('.title') || card.querySelector('h3') || card.querySelector('h2');
+
+      const titleElem =
+        card.querySelector('.title') || card.querySelector('h3') || card.querySelector('h2');
       let title = titleElem ? (titleElem.textContent || '').trim() : '';
 
       const img = card.querySelector('img');
@@ -76,7 +77,9 @@ export class GoyabuProvider extends BaseProvider {
       if (img) {
         const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
         if (src) {
-          thumbnailUrl = src.startsWith('http') ? src : `${this.baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
+          thumbnailUrl = src.startsWith('http')
+            ? src
+            : `${this.baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
         }
       }
 
@@ -95,7 +98,10 @@ export class GoyabuProvider extends BaseProvider {
   /**
    * Fetch all content units (episodes) for a given Goyabu anime URL slug (e.g. "/anime/...").
    */
-  public async fetchContentUnits(mediaId: string, _language?: import('../types/index.js').ContentLanguage): Promise<IContentUnit[]> {
+  public async fetchContentUnits(
+    mediaId: string,
+    _language?: import('../types/index.js').ContentLanguage,
+  ): Promise<IContentUnit[]> {
     const fullUrl = `${this.baseUrl}${mediaId.startsWith('/') ? '' : '/'}${mediaId}`;
     const response = await this.http.get(fullUrl);
     if (response.status !== 200) {
@@ -124,7 +130,7 @@ export class GoyabuProvider extends BaseProvider {
         // Clean possible unquoted keys ({id:1} -> {"id":1}) or single quotes
         let cleaned = jsonStr.replace(/([,{\[\s]|^)(\w+)\s*:/g, '$1"$2":');
         cleaned = cleaned.replace(/'/g, '"');
-        
+
         // Remove trailing commas before closing braces if any (JSON strict parsing)
         cleaned = cleaned.replace(/,\s*([\}\]])/g, '$1');
 
@@ -132,7 +138,7 @@ export class GoyabuProvider extends BaseProvider {
         if (Array.isArray(epData)) {
           for (let i = 0; i < epData.length; i++) {
             const ep = epData[i];
-            const num = ep.episodio ? parseFloat(ep.episodio) : (i + 1);
+            const num = ep.episodio ? parseFloat(ep.episodio) : i + 1;
             // Goyabu's episode array exposes a `link` field that's a relative
             // path (e.g. "/40742"); use it directly when present.
             const link = ep.link || (ep.id ? `/${ep.id}` : ep.ID ? `/${ep.ID}` : '');
@@ -165,7 +171,7 @@ export class GoyabuProvider extends BaseProvider {
         if (!href.includes(this.baseUrl) && !href.startsWith('/')) continue;
 
         const epNumAttr = a.getAttribute('data-episode-number');
-        const num = epNumAttr ? parseFloat(epNumAttr) : (units.length + 1);
+        const num = epNumAttr ? parseFloat(epNumAttr) : units.length + 1;
 
         const id = href.startsWith('http') ? new URL(href).pathname + new URL(href).search : href;
 

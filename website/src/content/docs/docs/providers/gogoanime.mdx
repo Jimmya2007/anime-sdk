@@ -1,0 +1,84 @@
+---
+title: GogoanimeProvider
+description: Provider for anineko.to that scrapes episode pages and extracts video streams from server buttons.
+---
+
+`GogoanimeProvider` scrapes `anineko.to` (the current Gogoanime mirror). It parses anime cards from search results, extracts episode lists from watch pages, and pulls stream URLs from `data-video` attributes on server buttons.
+
+## Constructor
+
+```ts
+import { HttpClient, GogoanimeProvider } from 'ani-sdk';
+
+const provider = new GogoanimeProvider(new HttpClient({ timeoutMs: 10_000 }));
+
+// Override the base URL if the site has moved:
+const provider = new GogoanimeProvider(client, {
+  baseUrl: 'https://anineko.to',
+});
+```
+
+```ts
+interface GogoanimeOptions {
+  baseUrl?: string; // defaults to 'https://anineko.to'
+}
+```
+
+## Usage
+
+```ts
+import { HttpClient, GogoanimeProvider } from 'ani-sdk';
+
+const provider = new GogoanimeProvider(new HttpClient({ timeoutMs: 10_000 }));
+
+// Search
+const shows = await provider.search('One Piece');
+// shows[0] => { id: '/watch/one-piece', title: 'One Piece',
+//               thumbnailUrl: 'https://...', catalogType: 'ANIME',
+//               providerId: 'gogoanime' }
+
+// Episodes — language param is ignored (sub only)
+const eps = await provider.fetchContentUnits(shows[0].id);
+// eps[0] => { id: '/watch/one-piece/ep-1', title: 'Episode 1 - I'm Luffy!',
+//             number: 1, language: 'sub' }
+
+// Stream
+const result = await provider.resolveStream(eps[0].id);
+if (result.type === 'video') {
+  for (const s of result.streams) {
+    console.log(s.sourceUrl, s.quality);
+    // → https://... 'auto' | '720p' | '1080p' | '360p'
+  }
+}
+```
+
+## Supported languages
+
+| Language | Support               |
+| -------- | --------------------- |
+| `'sub'`  | Full                  |
+| `'dub'`  | Falls back to `'sub'` |
+| `'raw'`  | Falls back to `'sub'` |
+
+The language parameter to `fetchContentUnits` and `resolveStream` is accepted but ignored. All content units report `language: 'sub'`.
+
+## ID formats
+
+- **Media ID** (from `search`): a URL path, e.g. `/watch/one-piece`
+- **Content unit ID** (from `fetchContentUnits`): a full episode path, e.g. `/watch/one-piece/ep-1`
+
+`fetchContentUnits` normalises its `mediaId` argument — it strips episode suffixes and prepends `/watch/` if needed, so passing a content unit ID back is handled gracefully.
+
+## How it works
+
+1. **Search** — GET `{baseUrl}/browser?keyword={query}`. Parses `article.nv-anime-card` elements: the `<a>` inside `h3.nv-anime-title` provides the ID and title; `<img>` provides the thumbnail.
+2. **Episodes** — GET the watch page. Parses `article.nv-info-episode-item` elements. Each `<a.nv-info-episode-main>` has an `href` (the content unit ID); the episode number is extracted from the `ep-N` segment of the path.
+3. **Stream resolution** — GET the episode page. Parses `button.nv-server-btn` elements, each of which has a `data-video` attribute containing a stream URL. Quality is inferred from the button label text. URLs starting with `//` or `/` are made absolute.
+
+A User-Agent header (`Chrome/120`) is set automatically on the `HttpClient` if one isn't already configured — anineko.to rejects requests without one.
+
+## Notes
+
+- Does not require `FlareSolverrClient`.
+- `resolveStream` returns all available server streams as separate `IVideoPayload` entries. The first one is not necessarily the highest quality — iterate and try in order if playback fails.
+- If anineko.to changes domain, pass the new URL via `options.baseUrl`.

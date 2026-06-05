@@ -1,45 +1,111 @@
 ---
+const providers = [
+  {
+    id: 'allmanga',
+    domain: 'allmanga.to',
+    languages: ['sub', 'dub'],
+    method: 'GraphQL API',
+    methodStyle: 'background:#6d28d9;color:#ede9fe',
+    tags: ['AES-CTR', 'mp4upload'],
+    description: `AllAnime <span class="fn">GraphQL</span> endpoint. Source URLs XOR-obfuscated then <span class="typ">AES-CTR</span>-decrypted; falls back through <span class="str">mp4upload</span> and wixmp shares.`,
+  },
+  {
+    id: 'gogoanime',
+    domain: 'anineko.to',
+    languages: ['sub'],
+    method: 'HTML scrape',
+    methodStyle: 'background:#1d4ed8;color:#dbeafe',
+    tags: ['vibeplayer', 'HLS'],
+    description: `Scrapes episode pages on anineko.to. Resolves <span class="fn">vibeplayer</span> embeds to a direct <span class="typ">HLS</span> manifest with proxy-aware chunk URI rewriting.`,
+  },
+  {
+    id: 'goyabu',
+    domain: 'goyabu.io',
+    languages: ['pt-br'],
+    method: 'batchexecute RPC',
+    methodStyle: 'background:#c2410c;color:#ffedd5',
+    tags: ['Blogger', 'googlevideo'],
+    description: `Reads a Blogger token from player data, calls Google <span class="fn">batchexecute</span>, and decodes the response to a <span class="str">googlevideo.com</span> stream URL.`,
+  },
+];
 ---
 
-<section id="providers">
-  <div class="hline py-8 px-10">
-    <h2 class="text-[28px] font-bold tracking-tight mb-1">Providers.</h2>
-    <p class="text-[14px]" style="color: var(--muted);">
-      Three live-tested sources. Each one verified by a real ffmpeg frame capture on every run.
-    </p>
-  </div>
-  <div class="grid grid-cols-1 md:grid-cols-3 hline">
-    <div class="cell no-bottom">
-      <div class="flex items-center justify-between mb-4">
-        <span class="font-semibold text-[15px]">allmanga</span>
-        <span class="badge badge-ok">sub · dub</span>
-      </div>
-      <p class="text-[12.5px] leading-relaxed mb-4" style="color: var(--muted);">
-        Large English-language catalog with sub and dub, backed by the AllAnime GraphQL API.
+<style>
+  .provider-scroll::-webkit-scrollbar {
+    width: 3px;
+  }
+  .provider-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .provider-scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 2px;
+  }
+</style>
+
+<section id="providers" class="hline">
+  <div class="flex">
+    <div
+      class="flex flex-col px-10 py-8"
+      style="width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);"
+    >
+      <h2 class="mb-2 text-[28px] font-bold tracking-tight">Providers.</h2>
+      <p class="text-[13px] leading-relaxed" style="color: var(--muted);">
+        {providers.length} live-tested sources. Each one verified by a real ffmpeg frame capture on every
+        run.
       </p>
-      <span class="text-[11px] font-mono" style="color: var(--muted);">allmanga.to</span>
     </div>
 
-    <div class="cell no-bottom">
-      <div class="flex items-center justify-between mb-4">
-        <span class="font-semibold text-[15px]">gogoanime</span>
-        <span class="badge badge-ok">sub</span>
-      </div>
-      <p class="text-[12.5px] leading-relaxed mb-4" style="color: var(--muted);">
-        Subtitled anime via anineko.to. Resolves direct HLS manifests with proxy-aware chunk rewriting.
-      </p>
-      <span class="text-[11px] font-mono" style="color: var(--muted);">anineko.to</span>
-    </div>
+    <div class="relative flex-1">
+      <div class="provider-scroll overflow-y-auto" style="max-height: 175px;">
+        {
+          providers.map((p, i) => (
+            <div
+              class="flex flex-wrap items-center gap-x-6 gap-y-2 px-8 py-4"
+              style={i > 0 ? 'border-top: 1px solid var(--border)' : ''}
+            >
+              <div style="min-width: 110px; width: 110px;">
+                <div class="text-[13.5px] font-semibold">{p.id}</div>
+                <div class="mt-0.5 font-mono text-[10px]" style="color: var(--muted);">
+                  {p.domain}
+                </div>
+              </div>
 
-    <div class="cell no-right no-bottom">
-      <div class="flex items-center justify-between mb-4">
-        <span class="font-semibold text-[15px]">goyabu</span>
-        <span class="badge badge-ok">pt-br</span>
+              <p
+                class="flex-1 text-[12px] leading-relaxed"
+                style="color: var(--muted); min-width: 160px;"
+                set:html={p.description}
+              />
+
+              <div class="flex flex-shrink-0 items-center gap-2">
+                <span class="badge" style={p.methodStyle}>
+                  {p.method}
+                </span>
+                {p.tags.map((t) => (
+                  <span
+                    class="px-1.5 py-px font-mono text-[9px]"
+                    style="background:rgba(255,255,255,0.07);color:var(--muted);"
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+
+              <div class="flex flex-shrink-0 gap-1.5">
+                {p.languages.map((l) => (
+                  <span class="badge badge-ok">{l}</span>
+                ))}
+              </div>
+            </div>
+          ))
+        }
       </div>
-      <p class="text-[12.5px] leading-relaxed mb-4" style="color: var(--muted);">
-        Portuguese-subtitled anime for Brazilian audiences, sourced via Google's batchexecute RPC.
-      </p>
-      <span class="text-[11px] font-mono" style="color: var(--muted);">goyabu.io</span>
+
+      <div
+        class="pointer-events-none absolute right-0 bottom-0 left-0"
+        style="height: 48px; background: linear-gradient(to top, var(--bg), transparent);"
+      >
+      </div>
     </div>
   </div>
 </section>

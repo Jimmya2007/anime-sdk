@@ -1,61 +1,52 @@
 ---
+const installCode = `<code>npm install <span class="str">ani-sdk</span>
+pnpm add <span class="str">ani-sdk</span>
+yarn add <span class="str">ani-sdk</span>
+bun add <span class="str">ani-sdk</span></code>`;
+
 const dockerCode = `<code>docker run <span class="str">-d</span> <span class="str">--name</span>=flaresolverr \\
   <span class="str">-p</span> <span class="num">8191</span>:<span class="num">8191</span> \\
   <span class="str">--restart</span> unless-stopped \\
-  ghcr.io/flaresolverr/flaresolverr:latest</code>`
+  ghcr.io/flaresolverr/flaresolverr:latest</code>`;
 ---
 
 <section id="install">
-  <div class="hline py-8 px-10">
-    <h2 class="text-[28px] font-bold tracking-tight mb-1">Up in thirty seconds.</h2>
+  <div class="hline px-10 py-8">
+    <h2 class="mb-1 text-[28px] font-bold tracking-tight">Up in thirty seconds.</h2>
     <p class="text-[14px]" style="color: var(--muted);">
       Node 20+ for native
-      <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">fetch</code>
+      <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">fetch</code>
       and
-      <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">crypto.subtle</code>.
-      Add
-      <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">linkedom</code>
-      as a peer dep for HTML parsing.
-      <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">ffmpeg</code>
+      <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">crypto.subtle</code>.
+      <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">ffmpeg</code>
       only needed to run the E2E suite.
     </p>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 hline">
+  <div class="hline grid grid-cols-1 md:grid-cols-2">
     <div class="cell no-bottom px-10 py-9">
       <div class="label mb-5">Package manager</div>
-      <div class="space-y-3">
-        {[
-          { pm: 'npm',  cmd: 'npm install ani-sdk linkedom' },
-          { pm: 'pnpm', cmd: 'pnpm add ani-sdk linkedom'    },
-          { pm: 'yarn', cmd: 'yarn add ani-sdk linkedom'     },
-          { pm: 'bun',  cmd: 'bun add ani-sdk linkedom'      },
-        ].map(({ pm, cmd }) => (
-          <div class="flex items-center gap-4 text-[13px] font-mono">
-            <span class="w-10 text-right shrink-0 text-[11px]" style="color: var(--muted);">{pm}</span>
-            <span class="text-zinc-200">{cmd}</span>
-          </div>
-        ))}
-      </div>
-      <p class="text-[12px] mt-5" style="color: var(--muted);">
-        <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">linkedom</code>
-        is needed because most providers scrape HTML and Node has no
-        built-in DOMParser. Register it on
-        <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">globalThis</code>
-        before you call any provider.
+      <pre class="font-mono text-[12px] leading-[1.8] text-zinc-300" set:html={installCode} />
+      <p class="mt-5 text-[12px]" style="color: var(--muted);">
+        HTML parsing is handled automatically.
+        <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">linkedom</code>
+        ships as a dependency and is registered in Node on import — no setup required.
       </p>
     </div>
 
     <div class="cell no-right no-bottom px-10 py-9">
       <div class="label mb-5">FlareSolverr (optional)</div>
-      <pre class="text-[12px] font-mono text-zinc-300 leading-[1.8]" set:html={dockerCode} />
-      <p class="text-[12px] mt-4" style="color: var(--muted);">
+      <pre class="font-mono text-[12px] leading-[1.8] text-zinc-300" set:html={dockerCode} />
+      <p class="mt-4 text-[12px]" style="color: var(--muted);">
         Optional transport for CF/DDoS-Guard-protected sites.
-        <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">FlareSolverrClient</code>
+        <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">FlareSolverrClient</code
+        >
         wraps
-        <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">get</code>/<code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">post</code>
+        <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">get</code>/<code
+          class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">post</code
+        >
         with cookie reuse; see
-        <code class="text-[11.5px] bg-white/[0.06] px-1.5 py-0.5 font-mono">FLARESOLVERR.md</code>.
+        <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">FLARESOLVERR.md</code>.
       </p>
     </div>
   </div>

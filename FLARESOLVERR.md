@@ -58,11 +58,11 @@ strips the `<pre>` tag and HTML-decodes the body before parsing.
 
 ## Options
 
-| Option       | Default                  | Notes                                                                                                       |
-|--------------|--------------------------|-------------------------------------------------------------------------------------------------------------|
-| `url`        | `http://localhost:8191`  | The FlareSolverr base URL.                                                                                  |
-| `timeoutMs`  | `120000`                 | Outer timeout — how long this client waits on the FlareSolverr API itself before aborting.                  |
-| `maxTimeout` | `90000`                  | How long FlareSolverr is allowed to spend solving the challenge internally. Default was bumped from 30s — first-attempt DDoS-Guard solves regularly run 45-60s. |
+| Option       | Default                 | Notes                                                                                                                                                           |
+| ------------ | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`        | `http://localhost:8191` | The FlareSolverr base URL.                                                                                                                                      |
+| `timeoutMs`  | `120000`                | Outer timeout — how long this client waits on the FlareSolverr API itself before aborting.                                                                      |
+| `maxTimeout` | `90000`                 | How long FlareSolverr is allowed to spend solving the challenge internally. Default was bumped from 30s — first-attempt DDoS-Guard solves regularly run 45-60s. |
 
 ## Reusing cookies
 

@@ -6,11 +6,11 @@ and a pluggable HTTP transport.
 
 ## Providers
 
-| ID           | Site           | Languages    | What it scrapes                                                   |
-|--------------|----------------|--------------|-------------------------------------------------------------------|
-| `allmanga`   | `allmanga.to`  | sub, dub     | AllAnime GraphQL → AES-CTR `tobeparsed` payload → Mp4Upload extractor (with `clock.json` fallback for the wixmp/sharepoint sources). |
-| `gogoanime`  | `anineko.to`   | sub          | Page scraping; the screenshot helper handles the vibeplayer embed → `master.m3u8`. |
-| `goyabu`     | `goyabu.io`    | pt-br (dub)  | Pulls the Blogger token from `playersData`, then calls Google's `batchexecute` endpoint to recover the `googlevideo.com` URL. |
+| ID          | Site          | Languages   | What it scrapes                                                                                                                      |
+| ----------- | ------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `allmanga`  | `allmanga.to` | sub, dub    | AllAnime GraphQL → AES-CTR `tobeparsed` payload → Mp4Upload extractor (with `clock.json` fallback for the wixmp/sharepoint sources). |
+| `gogoanime` | `anineko.to`  | sub         | Page scraping; the screenshot helper handles the vibeplayer embed → `master.m3u8`.                                                   |
+| `goyabu`    | `goyabu.io`   | pt-br (dub) | Pulls the Blogger token from `playersData`, then calls Google's `batchexecute` endpoint to recover the `googlevideo.com` URL.        |
 
 Every provider has a live E2E test that searches, picks an episode, resolves
 the stream, and captures a real video frame ~5s in with ffmpeg.
@@ -22,7 +22,7 @@ src/
 ├── transport/
 │   ├── http.ts              HttpClient: fetch + curl fallback, proxy routing
 │   ├── flaresolverr.ts      FlareSolverrClient: optional CF/DDoS-Guard bypass
-│   ├── dom.ts               Pluggable DOMParser (linkedom in Node)
+│   ├── dom.ts               DOMParser registry (auto-registers linkedom in Node)
 │   └── hlsUtils.ts          Rewrite m3u8 chunk URLs through a proxy
 ├── extractors/
 │   ├── Mp4UploadExtractor   Direct mp4 from www.mp4upload.com
@@ -45,20 +45,12 @@ mix and match (or use the extractors on their own).
 
 ```ts
 import { HttpClient, AllmangaProvider } from 'ani-sdk';
-import { DOMParser as LinkeDomParser } from 'linkedom';
-
-// Most providers scrape HTML, which needs a DOMParser in Node.
-if (typeof globalThis.DOMParser === 'undefined') {
-  (globalThis as any).DOMParser = LinkeDomParser;
-}
 
 const http = new HttpClient({ timeoutMs: 25_000 });
 const provider = new AllmangaProvider(http);
 
 const results = await provider.search('Frieren');
-const target = results.find((r) =>
-  r.title.toLowerCase().includes("beyond journey's end")
-)!;
+const target = results.find((r) => r.title.toLowerCase().includes("beyond journey's end"))!;
 
 const units = await provider.fetchContentUnits(target.id, 'sub');
 const stream = await provider.resolveStream(units[0].id);
@@ -81,9 +73,7 @@ recover a direct stream).
 import { HttpClient, BloggerExtractor } from 'ani-sdk';
 
 const blogger = new BloggerExtractor(new HttpClient());
-const streams = await blogger.extract(
-  'https://www.blogger.com/video.g?token=AD6v5dw…',
-);
+const streams = await blogger.extract('https://www.blogger.com/video.g?token=AD6v5dw…');
 ```
 
 ## Tests
@@ -118,7 +108,6 @@ Screenshots land in `scratch/screenshots/screenshot_<provider>.png`.
 - Node 20+ (uses `fetch`, `globalThis.crypto.subtle`, top-level await in
   tests).
 - `ffmpeg` on `PATH` for the E2E suite.
-- `linkedom` as a dev dep — registers a Node-side `DOMParser`.
 - FlareSolverr (optional) for any provider you write that needs CF bypass;
   see `FLARESOLVERR.md` and `docker-compose.yml`.
 

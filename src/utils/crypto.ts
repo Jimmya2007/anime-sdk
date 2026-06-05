@@ -8,19 +8,13 @@ const getCryptoSubtle = (): SubtleCrypto => {
 export async function aesDecrypt(
   ciphertextBase64: string,
   keyStr: string,
-  ivStr: string
+  ivStr: string,
 ): Promise<string> {
   const subtle = getCryptoSubtle();
   const keyBuffer = new TextEncoder().encode(keyStr);
   const ivBuffer = new TextEncoder().encode(ivStr);
 
-  const key = await subtle.importKey(
-    'raw',
-    keyBuffer,
-    { name: 'AES-CBC' },
-    false,
-    ['decrypt']
-  );
+  const key = await subtle.importKey('raw', keyBuffer, { name: 'AES-CBC' }, false, ['decrypt']);
 
   // Decode base64 to Uint8Array
   const binaryString = atob(ciphertextBase64);
@@ -30,11 +24,7 @@ export async function aesDecrypt(
     bytes[i] = binaryString.charCodeAt(i);
   }
 
-  const decryptedBuffer = await subtle.decrypt(
-    { name: 'AES-CBC', iv: ivBuffer },
-    key,
-    bytes
-  );
+  const decryptedBuffer = await subtle.decrypt({ name: 'AES-CBC', iv: ivBuffer }, key, bytes);
 
   // Strip null bytes and any control characters (0x00 - 0x10) that might be left from padding
   const decryptedText = new TextDecoder().decode(decryptedBuffer);
@@ -44,26 +34,20 @@ export async function aesDecrypt(
 export async function aesEncrypt(
   plaintext: string,
   keyStr: string,
-  ivStr: string
+  ivStr: string,
 ): Promise<string> {
   const subtle = getCryptoSubtle();
   const keyBuffer = new TextEncoder().encode(keyStr);
   const ivBuffer = new TextEncoder().encode(ivStr);
 
-  const key = await subtle.importKey(
-    'raw',
-    keyBuffer,
-    { name: 'AES-CBC' },
-    false,
-    ['encrypt']
-  );
+  const key = await subtle.importKey('raw', keyBuffer, { name: 'AES-CBC' }, false, ['encrypt']);
 
   const plaintextBytes = new TextEncoder().encode(plaintext);
 
   const encryptedBuffer = await subtle.encrypt(
     { name: 'AES-CBC', iv: ivBuffer },
     key,
-    plaintextBytes
+    plaintextBytes,
   );
 
   // Encode Uint8Array to base64
@@ -86,21 +70,16 @@ export async function sha256(text: string): Promise<Uint8Array> {
 export async function aesDecryptCtr(
   ciphertext: Uint8Array,
   key: Uint8Array,
-  iv: Uint8Array
+  iv: Uint8Array,
 ): Promise<Uint8Array> {
   const subtle = getCryptoSubtle();
-  const importedKey = await subtle.importKey(
-    'raw',
-    key as any,
-    { name: 'AES-CTR' },
-    false,
-    ['decrypt']
-  );
+  const importedKey = await subtle.importKey('raw', key as any, { name: 'AES-CTR' }, false, [
+    'decrypt',
+  ]);
   const decryptedBuffer = await subtle.decrypt(
     { name: 'AES-CTR', counter: iv as any, length: 64 },
     importedKey,
-    ciphertext as any
+    ciphertext as any,
   );
   return new Uint8Array(decryptedBuffer);
 }
-

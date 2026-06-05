@@ -1,89 +1,87 @@
 ---
-import UseCaseIcon from '../icons/UseCaseIcon.astro'
+import UseCaseIcon from '../icons/UseCaseIcon.astro';
 
 const USE_CASES = [
   {
-    label: "Mobile apps",
-    desc: "React Native, Expo, or any native client via the HTTP server.",
+    label: 'Mobile apps',
+    desc: 'React Native, Expo, or any native client via the HTTP server.',
     icon: 'mobile' as const,
     logos: [
-      { slug: "react", color: "61DAFB", alt: "React Native" },
-      { slug: "expo", color: "FFFFFF", alt: "Expo" },
-      { slug: "flutter", color: "02569B", alt: "Flutter" },
-      { slug: "kotlin", color: "7F52FF", alt: "Android" },
-      { slug: "swift", color: "F05138", alt: "iOS / Swift" },
-      { slug: "android", color: "34A853", alt: "Android" },
-      { slug: "apple", color: "FFFFFF", alt: "iOS" },
+      { slug: 'react', color: '61DAFB', alt: 'React Native' },
+      { slug: 'expo', color: 'FFFFFF', alt: 'Expo' },
+      { slug: 'flutter', color: '02569B', alt: 'Flutter' },
+      { slug: 'kotlin', color: '7F52FF', alt: 'Android' },
+      { slug: 'swift', color: 'F05138', alt: 'iOS / Swift' },
+      { slug: 'android', color: '34A853', alt: 'Android' },
+      { slug: 'apple', color: 'FFFFFF', alt: 'iOS' },
     ],
   },
   {
-    label: "Websites",
-    desc: "SSR frameworks, SPAs, or anything that runs server-side Node.",
+    label: 'Websites',
+    desc: 'SSR frameworks, SPAs, or anything that runs server-side Node.',
     icon: 'web' as const,
     logos: [
-      { slug: "nextdotjs", color: "FFFFFF", alt: "Next.js" },
-      { slug: "svelte", color: "FF3E00", alt: "SvelteKit" },
-      { slug: "remix", color: "FFFFFF", alt: "Remix" },
-      { slug: "astro", color: "FF5D01", alt: "Astro" },
-      { slug: "nuxtdotjs", color: "00DC82", alt: "Nuxt" },
-      { slug: "vuedotjs", color: "4FC08D", alt: "Vue" },
+      { slug: 'nextdotjs', color: 'FFFFFF', alt: 'Next.js' },
+      { slug: 'svelte', color: 'FF3E00', alt: 'SvelteKit' },
+      { slug: 'remix', color: 'FFFFFF', alt: 'Remix' },
+      { slug: 'astro', color: 'FF5D01', alt: 'Astro' },
+      { slug: 'nuxtdotjs', color: '00DC82', alt: 'Nuxt' },
+      { slug: 'vuedotjs', color: '4FC08D', alt: 'Vue' },
     ],
   },
   {
-    label: "Desktop apps",
-    desc: "Electron, Tauri, or any desktop runtime with a Node backend.",
+    label: 'Desktop apps',
+    desc: 'Electron, Tauri, or any desktop runtime with a Node backend.',
     icon: 'desktop' as const,
     logos: [
-      { slug: "electron", color: "9FEAF9", alt: "Electron" },
-      { slug: "tauri", color: "24C8DB", alt: "Tauri" },
-      { slug: "windows", color: "0078D4", alt: "Windows" },
-      { slug: "apple", color: "FFFFFF", alt: "macOS" },
-      { slug: "linux", color: "FCC624", alt: "Linux" },
-      { slug: "typescript", color: "3178C6", alt: "TypeScript" },
+      { slug: 'electron', color: '9FEAF9', alt: 'Electron' },
+      { slug: 'tauri', color: '24C8DB', alt: 'Tauri' },
+      { slug: 'windows', color: '0078D4', alt: 'Windows' },
+      { slug: 'apple', color: 'FFFFFF', alt: 'macOS' },
+      { slug: 'linux', color: 'FCC624', alt: 'Linux' },
+      { slug: 'typescript', color: '3178C6', alt: 'TypeScript' },
     ],
   },
   {
-    label: "CLI tools",
-    desc: "Single-file scripts to full interactive TUIs and download managers.",
+    label: 'CLI tools',
+    desc: 'Single-file scripts to full interactive TUIs and download managers.',
     icon: 'cli' as const,
     logos: [
-      { slug: "typescript", color: "3178C6", alt: "TypeScript" },
-      { slug: "nodedotjs", color: "5FA04E", alt: "Node.js" },
-      { slug: "bun", color: "FFFFFF", alt: "Bun" },
-      { slug: "deno", color: "FFFFFF", alt: "Deno" },
+      { slug: 'typescript', color: '3178C6', alt: 'TypeScript' },
+      { slug: 'nodedotjs', color: '5FA04E', alt: 'Node.js' },
+      { slug: 'bun', color: 'FFFFFF', alt: 'Bun' },
+      { slug: 'deno', color: 'FFFFFF', alt: 'Deno' },
     ],
   },
   {
-    label: "Servers & bots",
-    desc: "APIs, Discord/Telegram bots, scheduled jobs, or media servers.",
+    label: 'Servers & bots',
+    desc: 'APIs, Discord/Telegram bots, scheduled jobs, or media servers.',
     icon: 'server' as const,
     logos: [
-      { slug: "express", color: "FFFFFF", alt: "Express" },
-      { slug: "hono", color: "E36002", alt: "Hono" },
-      { slug: "fastify", color: "FFFFFF", alt: "Fastify" },
-      { slug: "nestjs", color: "E0234E", alt: "NestJS" },
-      { slug: "typescript", color: "3178C6", alt: "TypeScript" },
+      { slug: 'express', color: 'FFFFFF', alt: 'Express' },
+      { slug: 'hono', color: 'E36002', alt: 'Hono' },
+      { slug: 'fastify', color: 'FFFFFF', alt: 'Fastify' },
+      { slug: 'nestjs', color: 'E0234E', alt: 'NestJS' },
+      { slug: 'typescript', color: '3178C6', alt: 'TypeScript' },
     ],
   },
 ];
 ---
 
 <section id="use-cases">
-  <div class="hline py-8 px-10">
-    <h2 class="text-[28px] font-bold tracking-tight mb-1">
-      One SDK, every kind of app.
-    </h2>
+  <div class="hline px-10 py-8">
+    <h2 class="mb-1 text-[28px] font-bold tracking-tight">One SDK, every kind of app.</h2>
     <p class="text-[14px]" style="color: var(--muted);">
-      Anywhere you can run Node or Bun, use the SDK directly. Anywhere you
-      can't, run the HTTP server and call it over HTTP.
+      Anywhere you can run Node or Bun, use the SDK directly. Anywhere you can't, run the HTTP
+      server and call it over HTTP.
     </p>
   </div>
 
-  <div class="grid grid-cols-2 lg:grid-cols-5 hline">
+  <div class="hline grid grid-cols-2 lg:grid-cols-5">
     {
       USE_CASES.map((uc, i) => (
         <div
-          class={`cell no-bottom py-10 px-6 flex flex-col ${i === USE_CASES.length - 1 ? " no-right" : ""}`}
+          class={`cell no-bottom flex flex-col px-6 py-10 ${i === USE_CASES.length - 1 ? ' no-right' : ''}`}
         >
           <div
             class="mb-6"
@@ -91,11 +89,8 @@ const USE_CASES = [
           >
             <UseCaseIcon type={uc.icon} />
           </div>
-          <div class="font-semibold text-[13.5px] mb-2">{uc.label}</div>
-          <p
-            class="text-[11.5px] leading-relaxed mb-5"
-            style="color: var(--muted);"
-          >
+          <div class="mb-2 text-[13.5px] font-semibold">{uc.label}</div>
+          <p class="mb-5 text-[11.5px] leading-relaxed" style="color: var(--muted);">
             {uc.desc}
           </p>
           <div class="flex flex-wrap items-center gap-3">

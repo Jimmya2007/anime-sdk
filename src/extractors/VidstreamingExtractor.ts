@@ -24,13 +24,11 @@ export class VidstreamingExtractor extends BaseExtractor {
     const html = await response.text();
 
     // Find the keys (encryption key, iv, decryption key)
-    const keys = [...html.matchAll(/(?:container|videocontent)-(\d+)/g)].map(
-      (m) => m[1]
-    );
+    const keys = [...html.matchAll(/(?:container|videocontent)-(\d+)/g)].map((m) => m[1]);
 
     if (keys.length < 3) {
       throw new Error(
-        'Failed to extract AES keys/IV from Vidstreaming page. The site layout might have changed.'
+        'Failed to extract AES keys/IV from Vidstreaming page. The site layout might have changed.',
       );
     }
 
@@ -78,7 +76,7 @@ export class VidstreamingExtractor extends BaseExtractor {
 
     // Decrypt the sources list
     const decryptedResult = await aesDecrypt(ajaxJson.data, decryptionKey, iv);
-    
+
     let content: any;
     try {
       content = JSON.parse(decryptedResult);

@@ -1,6 +1,6 @@
 ---
-import '../styles/base.css'
-import '../styles/components.css'
+import '../styles/base.css';
+import '../styles/components.css';
 ---
 
 <!doctype html>
@@ -19,16 +19,16 @@ import '../styles/components.css'
     <script>
       document.querySelectorAll('a[href^="#"]').forEach((a) => {
         a.addEventListener('click', (e) => {
-          const href = a.getAttribute('href')
+          const href = a.getAttribute('href');
           if (href) {
-            const t = document.querySelector(href)
+            const t = document.querySelector(href);
             if (t) {
-              e.preventDefault()
-              t.scrollIntoView({ behavior: 'smooth' })
+              e.preventDefault();
+              t.scrollIntoView({ behavior: 'smooth' });
             }
           }
-        })
-      })
+        });
+      });
     </script>
   </body>
 </html>

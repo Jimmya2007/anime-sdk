@@ -10,7 +10,7 @@ export class HlsUtils {
   public static rewriteManifest(
     manifestText: string,
     playlistUrl: string,
-    httpClient: HttpClient
+    httpClient: HttpClient,
   ): string {
     if (!httpClient.getProxyUrl()) {
       return manifestText;
@@ -57,7 +57,7 @@ export class HlsUtils {
   private static rewriteTagsWithUris(
     line: string,
     playlistUrl: string,
-    httpClient: HttpClient
+    httpClient: HttpClient,
   ): string {
     // Matches URI="value" or URI='value'
     const uriRegex = /URI=(["'])(.*?)\1/g;

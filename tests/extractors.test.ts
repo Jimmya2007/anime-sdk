@@ -47,9 +47,9 @@ describe('VidstreamingExtractor', () => {
     const mockAjaxResult = {
       source: [
         { file: 'https://cdn.com/stream.m3u8', label: '1080 P' },
-        { file: 'https://cdn.com/stream-720.m3u8', label: '720 P' }
+        { file: 'https://cdn.com/stream-720.m3u8', label: '720 P' },
       ],
-      source_bk: []
+      source_bk: [],
     };
     const encryptedAjaxData = await aesEncrypt(JSON.stringify(mockAjaxResult), decKey, iv);
 
@@ -59,12 +59,12 @@ describe('VidstreamingExtractor', () => {
       if (url.includes('encrypt-ajax.php')) {
         return {
           status: 200,
-          json: async () => ({ data: encryptedAjaxData })
+          json: async () => ({ data: encryptedAjaxData }),
         } as Response;
       }
       return {
         status: 200,
-        text: async () => htmlWithData
+        text: async () => htmlWithData,
       } as Response;
     });
 

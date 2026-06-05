@@ -3,17 +3,10 @@
  *
  * To run: npx vitest run tests/e2e/gogoanime.test.ts
  */
-import { describe, it, expect, beforeAll } from 'vitest';
-import { DOMParser as LinkeDomParser } from 'linkedom';
+import { describe, it, expect } from 'vitest';
 import { HttpClient } from '../../src/transport/http.js';
 import { GogoanimeProvider } from '../../src/providers/GogoanimeProvider.js';
 import { captureStreamScreenshot } from './screenshotHelper.js';
-
-beforeAll(() => {
-  if (typeof globalThis.DOMParser === 'undefined') {
-    globalThis.DOMParser = LinkeDomParser as any;
-  }
-});
 
 describe('GogoAnime E2E', () => {
   it('searches, fetches episodes, resolves a stream, and captures a screenshot', async () => {

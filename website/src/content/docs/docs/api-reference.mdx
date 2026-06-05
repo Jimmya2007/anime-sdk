@@ -1,0 +1,424 @@
+---
+title: API Reference
+description: Complete type and interface documentation for ani-sdk.
+---
+
+## Types
+
+### `ContentLanguage`
+
+```ts
+type ContentLanguage = 'sub' | 'dub' | 'raw';
+```
+
+| Value   | Meaning                        |
+| ------- | ------------------------------ |
+| `'sub'` | Original audio with subtitles  |
+| `'dub'` | Dubbed audio (usually English) |
+| `'raw'` | Original audio, no subtitles   |
+
+### `MediaCatalogType`
+
+```ts
+type MediaCatalogType = 'ANIME' | 'MOVIE' | 'TV' | 'MANGA' | 'LIVE_TV';
+```
+
+All current providers return `'ANIME'`.
+
+### `IMediaSearchResult`
+
+Returned by `provider.search()`.
+
+```ts
+interface IMediaSearchResult {
+  id: string; // opaque, pass to fetchContentUnits
+  title: string;
+  thumbnailUrl?: string;
+  catalogType: MediaCatalogType;
+  providerId: string; // matches provider.id
+  availableLanguages?: ContentLanguage[]; // omitted if unknown
+}
+```
+
+### `IContentUnit`
+
+Returned by `provider.fetchContentUnits()`. Represents a single episode.
+
+```ts
+interface IContentUnit {
+  id: string; // opaque, pass to resolveStream
+  title: string;
+  number: number; // episode number (may be fractional, e.g. 1.5)
+  language: ContentLanguage; // what was actually resolved
+}
+```
+
+### `IVideoPayload`
+
+A single playable stream.
+
+```ts
+interface IVideoPayload {
+  sourceUrl: string;
+  isHLS: boolean; // true → HLS manifest (.m3u8)
+  quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
+  language?: ContentLanguage;
+  headers?: Record<string, string>; // forward to fetch/player (Referer, User-Agent)
+}
+```
+
+### `IMangaPayload`
+
+```ts
+interface IMangaPayload {
+  imageUrls: string[];
+  headers?: Record<string, string>;
+}
+```
+
+### `ResolvedMediaStream`
+
+Returned by `provider.resolveStream()`. A discriminated union — always check `type` before accessing the payload.
+
+```ts
+type ResolvedMediaStream =
+  | { type: 'video'; streams: IVideoPayload[] }
+  | { type: 'manga'; pages: IMangaPayload }
+  | { type: 'live'; stream: IVideoPayload };
+```
+
+All current providers return `type: 'video'`. The `streams` array is sorted best-first by the provider.
+
+---
+
+## HttpClient
+
+The shared HTTP transport. All providers and extractors accept one via constructor.
+
+```ts
+class HttpClient {
+  constructor(config?: HttpClientConfig);
+}
+
+interface HttpClientConfig {
+  timeoutMs?: number; // default: 10000 (10s)
+  proxyUrl?: string; // e.g. 'https://proxy.example.com'
+  proxyType?: 'prepend' | 'query'; // default: 'prepend'
+  proxyQueryParam?: string; // used when proxyType='query'; default: 'url'
+  defaultHeaders?: Record<string, string>;
+}
+```
+
+### Methods
+
+```ts
+get(url: string, options?: RequestInit): Promise<Response>
+post(url: string, body?: any, options?: RequestInit): Promise<Response>
+request(url: string, options?: RequestInit): Promise<Response>
+
+// Convenience mutators (affect defaultHeaders)
+setCookie(name: string, value: string): void
+setUserAgent(userAgent: string): void
+
+// Proxy internals (used by HlsUtils)
+getProxyUrl(): string | undefined
+getProxyType(): 'prepend' | 'query'
+getProxyQueryParam(): string
+getDefaultHeaders(): Record<string, string>
+requestUrl(url: string): string  // applies proxy rewriting to a URL
+```
+
+### Proxy modes
+
+**`prepend`** — strips the protocol from the target and prepends the proxy base:
+
+```
+proxyUrl: 'https://proxy.example.com'
+target:   'https://cdn.site.com/video.m3u8'
+result:   'https://proxy.example.com/cdn.site.com/video.m3u8'
+```
+
+**`query`** — passes the target as a query param:
+
+```
+proxyUrl:        'https://proxy.example.com/fetch'
+proxyQueryParam: 'url'
+result:          'https://proxy.example.com/fetch?url=https%3A%2F%2Fcdn.site.com%2Fvideo.m3u8'
+```
+
+### curl fallback
+
+When running in Node and `fetch` throws (timeout, TLS error, anti-bot rejection), `HttpClient` automatically retries the request using `curl` via `child_process.execSync`. The fallback synthesises a standard `Response`-shaped object, so callers see no difference. Cookie persistence uses a per-client temp file.
+
+---
+
+## BaseProvider
+
+```ts
+abstract class BaseProvider {
+  abstract readonly id:             string;
+  abstract readonly supportedTypes: MediaCatalogType[];
+
+  constructor(protected http: HttpClient);
+
+  abstract search(query: string): Promise<IMediaSearchResult[]>;
+
+  abstract fetchContentUnits(
+    mediaId:   string,
+    language?: ContentLanguage
+  ): Promise<IContentUnit[]>;
+
+  abstract resolveStream(
+    unitId:    string,
+    language?: ContentLanguage
+  ): Promise<ResolvedMediaStream>;
+}
+```
+
+---
+
+## BaseExtractor
+
+```ts
+abstract class BaseExtractor {
+  abstract readonly id: string;
+  constructor(protected http: HttpClient);
+  abstract extract(embedUrl: string): Promise<IVideoPayload[]>;
+}
+```
+
+Extractors return an empty array (never throw) when they cannot handle the given URL.
+
+---
+
+## Extractors
+
+### `BloggerExtractor`
+
+Extracts `googlevideo.com` MP4 URLs from Blogger video embeds.
+
+```ts
+class BloggerExtractor extends BaseExtractor {
+  readonly id = 'blogger';
+  static matches(url: string): boolean; // true for blogger.com/video.g?token=...
+  extract(embedUrl: string): Promise<IVideoPayload[]>;
+}
+```
+
+**Flow:**
+
+1. Fetch the embed page; extract `FdrFJe` (session ID) and `cfb2h` (build hash).
+2. POST to `/_/BloggerVideoPlayerUi/data/batchexecute` with the `WcwnYd` RPC.
+3. Parse the response: find the stream array inside the `wrb.fr` / `WcwnYd` envelope; prefer `itag=22` (720p) over `itag=18` (360p).
+4. Falls back to a raw regex scan for `googlevideo.com` URLs if structured parsing yields nothing.
+
+Returned URLs require `{ Referer: 'https://www.blogger.com/' }` headers.
+
+### `Mp4UploadExtractor`
+
+Extracts direct MP4 URLs from `mp4upload.com` embed pages.
+
+```ts
+class Mp4UploadExtractor extends BaseExtractor {
+  readonly id = 'mp4upload';
+  static matches(url: string): boolean; // true for mp4upload.com URLs
+  extract(embedUrl: string): Promise<IVideoPayload[]>;
+}
+```
+
+Parses the `player.src({ src: "https://...video.mp4" })` line from the embed HTML. Returned URLs require `{ Referer: 'https://mp4upload.com/' }`.
+
+### `GenericHlsExtractor`
+
+Best-effort extractor that scans any embed page for a `.m3u8` or `.mp4` URL.
+
+```ts
+class GenericHlsExtractor extends BaseExtractor {
+  readonly id = 'generic-hls';
+  extract(embedUrl: string): Promise<IVideoPayload[]>;
+}
+```
+
+Prefers `.m3u8` over `.mp4`. Handles JSON-embedded URLs with escaped slashes. Cannot decrypt obfuscated players (filemoon, streamwish, ok.ru). Returns `[]` if nothing matches.
+
+### `VidstreamingExtractor`
+
+Handles vidstreaming.io / gogoplay embeds with AES-CBC decryption.
+
+```ts
+class VidstreamingExtractor extends BaseExtractor {
+  readonly id = 'vidstreaming';
+  extract(embedUrl: string): Promise<IVideoPayload[]>;
+}
+```
+
+**Flow:**
+
+1. Fetch the embed page. Extract encryption key, IV, and decryption key from `container-N` / `videocontent-N` class names.
+2. Decrypt the `data-value` attribute with AES-CBC using the encryption key.
+3. Encrypt the `id` query param with AES-CBC.
+4. GET `{host}/encrypt-ajax.php?{decrypted_data}&id={encrypted_id}&alias={contentId}` with `X-Requested-With: XMLHttpRequest`.
+5. Decrypt the `data` field of the JSON response with AES-CBC using the decryption key.
+6. Parse the resulting JSON: `source` and `source_bk` arrays each contain `{ file, label }` entries.
+
+---
+
+## HlsUtils
+
+```ts
+class HlsUtils {
+  static rewriteManifest(manifestText: string, playlistUrl: string, httpClient: HttpClient): string;
+}
+```
+
+Rewrites every URI in an `.m3u8` manifest to route through the `HttpClient`'s configured proxy:
+
+- Plain URI lines (chunks, sub-playlists)
+- `URI="..."` attributes inside `#EXT-X-KEY`, `#EXT-X-MAP`, and similar tags
+- Relative URIs are first resolved to absolute using `playlistUrl`
+
+Returns the manifest unchanged if no proxy is configured on the client.
+
+---
+
+## DomRegistry
+
+```ts
+class DomRegistry {
+  static register(customParser: IDomParser): void;
+  static getParser(): IDomParser;
+  static parse(html: string): IDomElement;
+}
+```
+
+Global singleton parser used by all providers that scrape HTML. The default is `BrowserDomParser`, which wraps `globalThis.DOMParser`.
+
+`linkedom` is registered automatically on import in Node environments — no setup is needed. `DomRegistry.register()` is only needed when you want to swap in a fully custom parser.
+
+**Custom parser:**
+
+```ts
+import { DomRegistry, IDomParser, IDomElement } from 'ani-sdk';
+
+class MyParser implements IDomParser {
+  parse(html: string): IDomElement {
+    /* ... */
+  }
+}
+
+DomRegistry.register(new MyParser());
+```
+
+### `IDomElement` / `IDomParser`
+
+```ts
+interface IDomParser {
+  parse(html: string): IDomElement;
+}
+
+interface IDomElement {
+  querySelector(selector: string): IDomElement | null;
+  querySelectorAll(selector: string): IDomElement[];
+  getAttribute(name: string): string | null;
+  readonly textContent: string | null;
+  readonly outerHTML: string;
+  readonly innerHTML: string;
+}
+```
+
+---
+
+## FlareSolverrClient
+
+Optional Cloudflare / DDoS-Guard bypass via a local FlareSolverr instance.
+
+```ts
+class FlareSolverrClient {
+  constructor(options?: FlareSolverrOptions);
+}
+
+interface FlareSolverrOptions {
+  url?: string; // default: 'http://localhost:8191'
+  timeoutMs?: number; // total request timeout; default: 120000 (2 min)
+  maxTimeout?: number; // time FlareSolverr waits for the challenge; default: 90000 (90s)
+}
+```
+
+### Methods
+
+```ts
+isAvailable(): Promise<boolean>               // health-check; returns false if unreachable
+
+get(
+  url: string,
+  options?: {
+    headers?: Record<string, string>;
+    cookies?: Array<{ name: string; value: string; domain?: string }>;
+  }
+): Promise<FlareSolverrResponse>
+
+post(
+  url:      string,
+  postData: string | Record<string, string>,
+  options?: { headers?; cookies? }
+): Promise<FlareSolverrResponse>
+```
+
+```ts
+interface FlareSolverrResponse {
+  status: number;
+  url: string;
+  headers: Record<string, string>;
+  text(): string;
+  json(): any;
+}
+```
+
+**Running FlareSolverr:**
+
+```sh
+docker run -d --name=flaresolverr \
+  -p 8191:8191 \
+  --restart unless-stopped \
+  ghcr.io/flaresolverr/flaresolverr:latest
+```
+
+None of the built-in providers require FlareSolverr. It is available for custom providers targeting CF-protected sites.
+
+---
+
+## startServer
+
+```ts
+function startServer(options: ServerOptions): http.Server;
+
+interface ServerOptions {
+  providers: BaseProvider[];
+  port?: number; // default: 3000
+  auth?: { token: string };
+}
+```
+
+Launches a Node `http.Server`. Returns the server instance so you can call `server.close()`. All requests must be `GET`; all responses are JSON. See [HTTP Server](/docs/http-server/) for route documentation.
+
+---
+
+## Crypto utilities
+
+Exported for use in custom providers.
+
+```ts
+// AES-CBC decrypt — returns plaintext string
+aesDecrypt(ciphertextBase64: string, keyStr: string, ivStr: string): Promise<string>
+
+// AES-CBC encrypt — returns base64 string
+aesEncrypt(plaintext: string, keyStr: string, ivStr: string): Promise<string>
+
+// SHA-256 hash
+sha256(text: string): Promise<Uint8Array>
+
+// AES-CTR decrypt (used by AllmangaProvider)
+aesDecryptCtr(ciphertext: Uint8Array, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array>
+```
+
+All functions use `globalThis.crypto.subtle` (available in Node 20+ and all modern browsers).

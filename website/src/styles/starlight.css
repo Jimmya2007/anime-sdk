@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --sl-font: 'Inter', system-ui, sans-serif;
+  --sl-font-mono: 'JetBrains Mono', monospace;
+}
+
+:root,
+:root[data-theme='dark'] {
+  --sl-color-accent-low: #3b0764;
+  --sl-color-accent: #7c3aed;
+  --sl-color-accent-high: #a78bfa;
+
+  --sl-color-white: #f4f4f5;
+  --sl-color-gray-1: #d4d4d8;
+  --sl-color-gray-2: #a1a1aa;
+  --sl-color-gray-3: #71717a;
+  --sl-color-gray-4: #52525b;
+  --sl-color-gray-5: #27272a;
+  --sl-color-gray-6: #18181b;
+  --sl-color-black: #111113;
+
+  --sl-color-bg: #111113;
+  --sl-color-bg-nav: #0e0e10;
+  --sl-color-bg-sidebar: #0e0e10;
+  --sl-color-bg-inline-code: rgba(255, 255, 255, 0.06);
+  --sl-color-hairline: rgba(255, 255, 255, 0.08);
+  --sl-color-hairline-shade: rgba(255, 255, 255, 0.04);
+  --sl-color-text: #e4e4e7;
+  --sl-color-text-accent: #a78bfa;
+  --sl-color-text-invert: #111113;
+
+  --sl-nav-height: 3.5rem;
+  --sl-sidebar-width: 16rem;
+  --sl-content-width: 50rem;
+}
+
+/* Header — one hairline on the <header> element itself (which also carries the
+   .header class); suppress box-shadow and any border on the inner div.header. */
+header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+header .header {
+  border-bottom: none !important;
+}
+
+/* Sidebar border */
+.sidebar-pane {
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Search — remove all rounded corners */
+[data-open-modal] {
+  border-radius: 0 !important;
+}
+#starlight__search {
+  --sl-search-corners: 0px;
+}
+.pagefind-ui__search-input,
+.pagefind-ui__search-form {
+  border-radius: 0 !important;
+}
+
+/* Code blocks — ec already places a border on <pre> and <figcaption>; we just
+   need to zero the border-radius, kill any box-shadow, and recolor --ec-brdCol
+   to match the rest of the design's hairlines. */
+.expressive-code,
+.expressive-code .frame,
+.expressive-code figure,
+.expressive-code pre {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.expressive-code {
+  --ec-brdCol: rgba(255, 255, 255, 0.08);
+}
+
+/* Ensure heading font matches */
+.sl-markdown-content h1,
+.sl-markdown-content h2,
+.sl-markdown-content h3,
+.sl-markdown-content h4 {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Sidebar links */
+.sidebar-content a {
+  border-radius: 0 !important;
+}
+
+/* Sidebar item size and weight */
+.sidebar-content .large {
+  font-size: var(--sl-text-base) !important;
+  font-weight: 400 !important;
+}
+.sidebar-content a.large {
+  color: var(--sl-color-gray-2);
+}
+.sidebar-content a.large:hover,
+.sidebar-content a.large:focus {
+  color: var(--sl-color-white);
+}
+
+/* Copy button in code blocks */
+.expressive-code .copy button {
+  border-radius: 0 !important;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+}
+
+/* Remove the separator that sat between social icons and the now-removed theme toggle */
+.social-icons::after {
+  display: none !important;
+}
+
+/* Pagination prev/next links */
+.pagination-links a {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.pagination-links a:hover {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Active sidebar item accent */
+[aria-current='page'] {
+  background-color: rgba(139, 92, 246, 0.12) !important;
+  color: #a78bfa !important;
+}

@@ -1,0 +1,101 @@
+---
+title: AllmangaProvider
+description: Provider for allmanga.to using the AllAnime GraphQL API with AES-CTR stream decryption.
+---
+
+`AllmangaProvider` resolves streams from `allmanga.to` via the AllAnime GraphQL endpoint. It supports sub, dub, and raw and handles multiple source types: mp4upload embeds, wixmp packager links, and generic HLS embeds.
+
+## Constructor
+
+```ts
+import { HttpClient, AllmangaProvider } from 'ani-sdk';
+
+const provider = new AllmangaProvider(client);
+
+// With options:
+const provider = new AllmangaProvider(client, {
+  defaultLanguage: 'dub', // default used when language is omitted per-call
+  baseUrl: 'https://api.allanime.day/api', // override the API endpoint
+});
+```
+
+```ts
+interface AllmangaOptions {
+  baseUrl?: string;
+  defaultLanguage?: ContentLanguage; // defaults to 'sub'
+}
+```
+
+Does **not** require `DOMParser` — it uses the GraphQL API, not HTML scraping.
+
+## Usage
+
+```ts
+import { HttpClient, AllmangaProvider } from 'ani-sdk';
+
+const provider = new AllmangaProvider(new HttpClient());
+
+// Search
+const shows = await provider.search('Attack on Titan');
+// shows[0] => { id: 'shingeki-no-kyojin', title: 'Attack on Titan',
+//               catalogType: 'ANIME', providerId: 'allmanga',
+//               availableLanguages: ['sub', 'dub'] }
+
+// Episodes — pass 'sub' or 'dub'; falls back to 'sub' if unavailable
+const eps = await provider.fetchContentUnits(shows[0].id, 'dub');
+// eps[0] => { id: 'shingeki-no-kyojin/1/dub', title: 'Episode 1',
+//             number: 1, language: 'dub' }
+
+// Stream
+const result = await provider.resolveStream(eps[0].id, 'dub');
+// result => { type: 'video', streams: [...] }
+
+if (result.type === 'video') {
+  const best = result.streams[0]; // pre-sorted by quality score
+  console.log(best.sourceUrl, best.quality, best.isHLS);
+}
+```
+
+## Supported languages
+
+| Language | Support                                |
+| -------- | -------------------------------------- |
+| `'sub'`  | Full — most titles                     |
+| `'dub'`  | Full — many popular titles             |
+| `'raw'`  | Where available; falls back to `'sub'` |
+
+`search()` returns `availableLanguages` on each result so you can check upfront. `fetchContentUnits()` and `resolveStream()` fall back to `'sub'` if the requested language isn't available for a given title.
+
+## Content unit ID format
+
+AllManga unit IDs embed the show ID, episode string, and language:
+
+```
+{showId}/{episodeString}/{language}
+```
+
+Example: `shingeki-no-kyojin/1/sub`. Do not construct these manually — always use IDs from `fetchContentUnits`.
+
+## How stream resolution works
+
+1. **Persisted GraphQL query** — fetches episode sources using a SHA-256 hash to identify the query. The response contains a `tobeparsed` field.
+2. **AES-CTR decrypt** — `tobeparsed` is base64-decoded, then the nonce (bytes 1–12) and ciphertext (bytes 13 to end−16) are extracted. The key is SHA-256 of the string `'Xot36i3lK3:v1'`. The IV is the 16-byte nonce with a counter suffix. `crypto.subtle.decrypt` (AES-CTR) recovers the source URL list.
+3. **XOR decode** — individual source URLs starting with `--` are a hex string where each byte is XOR'd with `0x38`. After decode, `/clock` is rewritten to `/clock.json`.
+4. **Source dispatch** — each decoded URL is routed to the appropriate handler:
+   - `/clock.json` — internal AllAnime endpoint that returns a `links` array with wixmp packager or direct MP4/HLS URLs
+   - `.m3u8` or `.mp4` — used directly
+   - `mp4upload.com` — passed to `Mp4UploadExtractor`
+   - `tools.fast4speed.rsvp` — used directly (Yt-mp4 alias)
+   - Anything else — tried with `GenericHlsExtractor` as a best-effort fallback
+5. **Fallback** — if the persisted query fails, a regular GraphQL POST is used instead.
+6. **Ranking** — streams are sorted by a quality score: mp4upload direct > wixstatic mp4 > HLS m3u8 > other. The highest-scoring stream is first in the array.
+
+## Wixmp packager
+
+When a `clock.json` response contains a `repackager.wixmp.com` URL, AllManga expands the encoded quality variants (e.g. `,480p,720p,1080p,`) into individual `IVideoPayload` entries with the corresponding quality label.
+
+## Notes
+
+- Does not require `FlareSolverrClient` — allmanga.to is not Cloudflare-protected.
+- `clock.json` endpoints have an 8-second timeout and are fetched on each `resolveStream` call.
+- The AES key phrase (`'Xot36i3lK3:v1'`) is embedded in the source and may change if AllAnime updates its API.

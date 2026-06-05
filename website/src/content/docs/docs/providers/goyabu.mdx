@@ -1,0 +1,76 @@
+---
+title: GoyabuProvider
+description: Provider for goyabu.io that resolves Brazilian Portuguese anime streams via Google batchexecute.
+---
+
+`GoyabuProvider` targets `goyabu.io`, a Brazilian Portuguese anime site. Episodes are hosted as Blogger video embeds. The provider extracts Blogger tokens from the `playersData` JS literal on each episode page and passes them to `BloggerExtractor`, which calls Google's `batchexecute` RPC to recover the actual `googlevideo.com` MP4 URLs.
+
+## Constructor
+
+```ts
+import { HttpClient, GoyabuProvider } from 'ani-sdk';
+
+const provider = new GoyabuProvider(new HttpClient());
+
+// Override the base URL:
+const provider = new GoyabuProvider(client, {
+  baseUrl: 'https://goyabu.io',
+});
+```
+
+```ts
+interface GoyabuOptions {
+  baseUrl?: string; // defaults to 'https://goyabu.io'
+}
+```
+
+## Usage
+
+```ts
+import { HttpClient, GoyabuProvider } from 'ani-sdk';
+
+const provider = new GoyabuProvider(new HttpClient());
+
+// Search
+const shows = await provider.search('Naruto');
+// shows[0] => { id: '/anime/naruto', title: 'Naruto', ... }
+
+// Episodes
+const eps = await provider.fetchContentUnits(shows[0].id);
+// eps[0] => { id: '/40742', title: 'Episódio 1', number: 1, language: 'sub' }
+
+// Stream
+const result = await provider.resolveStream(eps[0].id);
+if (result.type === 'video') {
+  const s = result.streams[0];
+  // s.sourceUrl → 'https://...googlevideo.com/...'
+  // s.isHLS → false (MP4)
+  // s.quality → '720p' | '360p' | 'auto'
+}
+```
+
+## Language
+
+All content on Goyabu is Brazilian Portuguese (raw audio, no subtitles). Content unit IDs report `language: 'sub'` because that's the `ContentLanguage` type's closest match, but the audio is PT-BR only.
+
+The `language` parameter on `fetchContentUnits` and `resolveStream` is ignored.
+
+## How it works
+
+1. **Search** — GET `{baseUrl}/?s={query}`. Searches for `article.boxAN` cards; extracts the `href` (must include `/anime/`) as the ID and reads the title from `.title`, `h3`, or `h2`.
+
+2. **Episodes** — GET the show page. Tries up to five regex patterns to extract a JS array (`allEpisodes`, `episodes`, `episodios`, etc.) from the inline `<script>` blocks. Each array entry is expected to have `episodio` (episode number) and `link` (content unit ID). If no JS array is found, falls back to parsing `<a>` elements with `/?p=` or `/episode/` in the href.
+
+3. **Stream resolution** — GET the episode page. Extracts `playersData = [...]` from the page HTML as a JSON literal; each object in the array with a `url` field matching `blogger.com/video.g` is collected. Each Blogger URL is passed to `BloggerExtractor.extract()`:
+   - Fetch the Blogger embed page to extract `FdrFJe` (session ID) and `cfb2h` (build hash).
+   - POST to `https://www.blogger.com/_/BloggerVideoPlayerUi/data/batchexecute` with the `WcwnYd` RPC.
+   - Parse the response: walk the `wrb.fr` / `WcwnYd` entries, find the stream array, prefer `itag=22` (720p) over `itag=18` (360p).
+   - Falls back to a raw regex scan for `googlevideo.com` URLs if structured parsing yields nothing.
+
+4. **Direct stream fallback** — if no Blogger URLs are found or all fail, the provider scans the episode page HTML directly for `"file":` patterns referencing `.m3u8` or `.mp4`.
+
+## Important caveats
+
+- **`googlevideo.com` URLs are time-limited** — they expire and are IP-tied. Do not cache them. Each playback session needs a fresh `resolveStream` call.
+- A `Chrome/120` User-Agent is set automatically if not already configured.
+- Does not require `FlareSolverrClient`.

@@ -130,10 +130,8 @@ export class AllmangaProvider extends BaseProvider {
 
     const json = (await res.json()) as any;
     const detail = json?.data?.show?.availableEpisodesDetail ?? {};
-    const episodes: string[] =
-      detail[lang]?.length > 0 ? detail[lang] : detail.sub ?? [];
-    const resolvedLang: ContentLanguage =
-      detail[lang]?.length > 0 ? lang : 'sub';
+    const episodes: string[] = detail[lang]?.length > 0 ? detail[lang] : (detail.sub ?? []);
+    const resolvedLang: ContentLanguage = detail[lang]?.length > 0 ? lang : 'sub';
 
     const units: IContentUnit[] = [];
     for (const epStr of episodes) {
@@ -159,22 +157,15 @@ export class AllmangaProvider extends BaseProvider {
     if (!showId || !episodeString) {
       throw new Error(`Invalid AllManga unit ID: ${unitId}`);
     }
-    const lang =
-      language ??
-      (unitLang as ContentLanguage | undefined) ??
-      this.defaultLanguage;
+    const lang = language ?? (unitLang as ContentLanguage | undefined) ?? this.defaultLanguage;
 
     const sources = await this.fetchEpisodeSources(showId, episodeString, lang);
     if (sources.length === 0) {
-      throw new Error(
-        `AllManga returned no source URLs for ${unitId} (lang=${lang})`,
-      );
+      throw new Error(`AllManga returned no source URLs for ${unitId} (lang=${lang})`);
     }
 
     // Process sources in priority order; collect streams across all sources.
-    sources.sort(
-      (a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0),
-    );
+    sources.sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0));
 
     const streams: IVideoPayload[] = [];
     const errors: string[] = [];
@@ -221,8 +212,7 @@ export class AllmangaProvider extends BaseProvider {
     const extensions = {
       persistedQuery: {
         version: 1,
-        sha256Hash:
-          'd405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec',
+        sha256Hash: 'd405d0edd690624b66baba3068e0edc3ac90f1597d898a1ec8db4e5c43c00fec',
       },
     };
 
@@ -249,9 +239,7 @@ export class AllmangaProvider extends BaseProvider {
       { headers: this.apiHeaders() },
     );
     if (fbRes.status !== 200) {
-      throw new Error(
-        `AllManga fallback GraphQL failed with status ${fbRes.status}`,
-      );
+      throw new Error(`AllManga fallback GraphQL failed with status ${fbRes.status}`);
     }
     const fbJson = (await fbRes.json()) as any;
     return fbJson?.data?.episode?.sourceUrls ?? [];
@@ -286,10 +274,7 @@ export class AllmangaProvider extends BaseProvider {
     const text = new TextDecoder().decode(decrypted);
     const parsed = JSON.parse(text);
 
-    const sources =
-      parsed.episode?.sourceUrls ??
-      parsed.data?.episode?.sourceUrls ??
-      null;
+    const sources = parsed.episode?.sourceUrls ?? parsed.data?.episode?.sourceUrls ?? null;
     if (!Array.isArray(sources)) {
       throw new Error('No sourceUrls in decrypted tobeparsed payload');
     }
@@ -366,10 +351,7 @@ export class AllmangaProvider extends BaseProvider {
     return [];
   }
 
-  private async resolveClockJson(
-    url: string,
-    lang: ContentLanguage,
-  ): Promise<IVideoPayload[]> {
+  private async resolveClockJson(url: string, lang: ContentLanguage): Promise<IVideoPayload[]> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
@@ -401,10 +383,7 @@ export class AllmangaProvider extends BaseProvider {
               .replace('repackager.wixmp.com/', '')
               .replace(/\.urlset\/master\.m3u8$/, '');
             for (const q of qualities) {
-              const streamUrl = cleanBase.replace(
-                `/,${m[1]},/mp4/`,
-                `/${q}/mp4/`,
-              );
+              const streamUrl = cleanBase.replace(`/,${m[1]},/mp4/`, `/${q}/mp4/`);
               out.push({
                 sourceUrl: streamUrl,
                 isHLS: false,

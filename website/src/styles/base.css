@@ -1,7 +1,7 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: '"JetBrains Mono"', monospace;
 }
 
@@ -18,11 +18,7 @@
 
 body {
   background-color: var(--bg);
-  background-image: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.085) 1px,
-    transparent 1px
-  );
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.085) 1px, transparent 1px);
   background-size: 22px 22px;
 }
 
@@ -36,40 +32,24 @@ body {
 }
 
 .show-dots {
-  background-image: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.085) 1px,
-    transparent 1px
-  );
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.085) 1px, transparent 1px);
   background-size: 22px 22px;
 }
 
 .dot-reveal {
   position: relative;
   isolation: isolate;
-  background-image: radial-gradient(
-    circle,
-    rgba(255, 255, 255, 0.085) 1px,
-    transparent 1px
-  );
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.085) 1px, transparent 1px);
   background-size: 22px 22px;
 }
 .dot-reveal::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-color: var(--bg);
-  mask-image: radial-gradient(
-    ellipse 70% 90% at 100% 0%,
-    transparent 0%,
-    black 60%
-  );
-  -webkit-mask-image: radial-gradient(
-    ellipse 70% 90% at 100% 0%,
-    transparent 0%,
-    black 60%
-  );
+  mask-image: radial-gradient(ellipse 70% 90% at 100% 0%, transparent 0%, black 60%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 90% at 100% 0%, transparent 0%, black 60%);
   z-index: -1;
 }
 

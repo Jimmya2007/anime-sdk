@@ -1,0 +1,62 @@
+---
+title: Providers
+description: Overview of the three live-tested anime stream providers in ani-sdk.
+---
+
+A provider is a site-specific adapter that maps search queries and episode IDs to direct stream URLs. All three ship with ani-sdk and are verified on every release.
+
+## Available providers
+
+| ID          | Class               | Domain      | Languages     | Method            |
+| ----------- | ------------------- | ----------- | ------------- | ----------------- |
+| `allmanga`  | `AllmangaProvider`  | allmanga.to | sub, dub, raw | GraphQL + AES-CTR |
+| `gogoanime` | `GogoanimeProvider` | anineko.to  | sub           | HTML scrape + HLS |
+| `goyabu`    | `GoyabuProvider`    | goyabu.io   | raw (pt-br)   | batchexecute RPC  |
+
+All three extend `BaseProvider` and expose identical method signatures.
+
+## Swapping providers
+
+```ts
+// Before
+import { GogoanimeProvider } from 'ani-sdk';
+const provider = new GogoanimeProvider(client);
+
+// After — nothing else changes
+import { AllmangaProvider } from 'ani-sdk';
+const provider = new AllmangaProvider(client);
+
+const shows = await provider.search('One Piece');
+const eps = await provider.fetchContentUnits(shows[0].id);
+const result = await provider.resolveStream(eps[0].id);
+```
+
+## Testing strategy
+
+Each provider ships with a live E2E test that:
+
+1. Searches a real title against the live site
+2. Resolves a stream URL
+3. Fetches an HLS segment or probes an MP4 URL
+4. Runs `ffmpeg` to extract a frame from ~5s in
+5. Asserts the output PNG is larger than 1 KB
+
+These tests run without mocking. If a provider's upstream site changes its API or HTML structure, the test fails and the SDK is updated. Screenshots land in `scratch/screenshots/` (gitignored).
+
+## Selecting a provider
+
+**AllManga** is the best choice for most use cases — it has the widest catalogue, supports sub and dub, and uses a stable GraphQL API rather than HTML scraping.
+
+**Gogoanime** (anineko.to) is a useful fallback when AllManga is missing a title. Sub only.
+
+**Goyabu** is the only option for Brazilian Portuguese content.
+
+## Provider IDs
+
+The `id` property is used to identify providers in the HTTP server's `provider=` query parameter:
+
+```sh
+curl 'localhost:3000/search?q=Naruto&provider=allmanga'
+curl 'localhost:3000/search?q=Naruto&provider=gogoanime'
+curl 'localhost:3000/search?q=Naruto&provider=goyabu'
+```

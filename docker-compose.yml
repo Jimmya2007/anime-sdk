@@ -3,7 +3,7 @@ services:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
     ports:
-      - "8191:8191"
+      - '8191:8191'
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
@@ -11,7 +11,7 @@ services:
       - TZ=UTC
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8191/v1"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8191/v1']
       interval: 30s
       timeout: 5s
       retries: 3

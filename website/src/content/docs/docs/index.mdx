@@ -1,0 +1,129 @@
+---
+title: Getting Started
+description: Install ani-sdk and resolve your first anime stream in minutes.
+---
+
+ani-sdk is a TypeScript SDK that resolves direct video stream URLs from anime sites. It has three layers: HTTP transport, extractors (embed parsers), and providers (site-specific logic). Everything connects through `HttpClient`.
+
+## Requirements
+
+- **Node 20+** or **Bun** — native `fetch` and `crypto.subtle` are required
+- **ffmpeg** — only needed to run the live E2E test suite
+
+## Install
+
+```sh
+npm install ani-sdk
+```
+
+```sh
+pnpm add ani-sdk
+```
+
+```sh
+bun add ani-sdk
+```
+
+HTML parsing is handled automatically. `linkedom` ships as a dependency and is registered in Node on import — no setup required.
+
+## Three-call pattern
+
+Every provider exposes the same three methods: `search` → `fetchContentUnits` → `resolveStream`.
+
+```ts
+import { HttpClient, GogoanimeProvider } from 'ani-sdk';
+
+const client = new HttpClient({ timeoutMs: 10_000 });
+const provider = new GogoanimeProvider(client);
+
+// 1. Search
+const shows = await provider.search('Frieren');
+console.log(shows[0].id, shows[0].title);
+
+// 2. Episodes
+const eps = await provider.fetchContentUnits(shows[0].id);
+console.log(eps[0].id, eps[0].number);
+
+// 3. Stream
+const result = await provider.resolveStream(eps[0].id);
+
+if (result.type === 'video') {
+  for (const stream of result.streams) {
+    console.log(stream.sourceUrl, stream.quality, stream.isHLS);
+  }
+}
+```
+
+## The resolved stream shape
+
+`resolveStream` returns `ResolvedMediaStream` — a discriminated union on `type`:
+
+```ts
+type ResolvedMediaStream =
+  | { type: 'video'; streams: IVideoPayload[] }
+  | { type: 'manga'; pages: IMangaPayload }
+  | { type: 'live'; stream: IVideoPayload };
+```
+
+All current providers return `type: 'video'`. Always check `result.type` before accessing the payload.
+
+Each `IVideoPayload` in the streams array has:
+
+```ts
+interface IVideoPayload {
+  sourceUrl: string; // direct URL or HLS manifest
+  isHLS: boolean; // true → feed to an HLS player
+  quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
+  language?: ContentLanguage;
+  headers?: Record<string, string>; // Referer/User-Agent required by some CDNs
+}
+```
+
+## Sub / dub / raw
+
+Pass a `ContentLanguage` to `fetchContentUnits` and `resolveStream`:
+
+```ts
+type ContentLanguage = 'sub' | 'dub' | 'raw';
+```
+
+```ts
+const eps = await provider.fetchContentUnits(shows[0].id, 'dub');
+const result = await provider.resolveStream(eps[0].id, 'dub');
+```
+
+Providers that don't support the requested language fall back to `'sub'`. Check `IContentUnit.language` in the returned episodes to see what was actually resolved.
+
+## Using the resolved URL
+
+Pass `sourceUrl` directly to any HLS player or downloader. Many CDNs require the `headers` object to be forwarded:
+
+```ts
+// hls.js
+const hls = new Hls();
+hls.loadSource(stream.sourceUrl);
+// hls.js doesn't support custom headers on fetch — serve through your HTTP server instead
+
+// ffmpeg
+// ffmpeg -i "url" -headers "Referer: ..." output.mp4
+
+// React Native / Video
+<Video source={{ uri: stream.sourceUrl, headers: stream.headers }} />
+```
+
+## Swapping providers
+
+The three calls are identical across providers. Swap the import and constructor, nothing else changes:
+
+```ts
+import { AllmangaProvider } from 'ani-sdk';
+const provider = new AllmangaProvider(new HttpClient());
+// same: search → fetchContentUnits → resolveStream
+```
+
+## Next steps
+
+- [Browse providers](/docs/providers/) — AllManga, Gogoanime, Goyabu
+- [Run the HTTP server](/docs/http-server/) — call ani-sdk from any language
+- [Full API reference](/docs/api-reference/)
+- [Add a provider](/docs/contributing/)

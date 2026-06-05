@@ -1,13 +1,41 @@
-import { defineConfig } from "astro/config";
-import react from "@astrojs/react";
-import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from 'astro/config';
+import starlight from '@astrojs/starlight';
+import react from '@astrojs/react';
+import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  integrations: [react()],
+  integrations: [
+    starlight({
+      title: 'ani-sdk',
+      description: 'TypeScript SDK for anime stream resolution',
+      social: {
+        github: 'https://github.com/hexxt-git/ani-sdk',
+      },
+      customCss: ['./src/styles/starlight.css'],
+      components: {
+        ThemeSelect: './src/components/ThemeSelect.astro',
+        SiteTitle: './src/components/SiteTitle.astro',
+      },
+      disable404Route: true,
+      sidebar: [
+        { label: 'Getting Started', link: '/docs/' },
+        {
+          label: 'Providers',
+          items: [
+            { label: 'Overview', link: '/docs/providers/' },
+            { label: 'AllManga', link: '/docs/providers/allmanga/' },
+            { label: 'Gogoanime', link: '/docs/providers/gogoanime/' },
+            { label: 'Goyabu', link: '/docs/providers/goyabu/' },
+          ],
+        },
+        { label: 'HTTP Server', link: '/docs/http-server/' },
+        { label: 'API Reference', link: '/docs/api-reference/' },
+        { label: 'Contributing', link: '/docs/contributing/' },
+      ],
+    }),
+    react(),
+  ],
   vite: {
     plugins: [tailwindcss()],
-    server: {
-      allowedHosts: ["3449-2a09-bac5-426f-2664-00-3d3-1.ngrok-free.app"],
-    },
   },
 });

@@ -1,7 +1,10 @@
 ---
-interface Props { size?: number }
-const { size = 10 } = Astro.props
+interface Props {
+  size?: number;
+}
+const { size = 10 } = Astro.props;
 ---
+
 <svg width={size} height={size} viewBox="0 0 10 10" fill="none">
-  <polygon points="2,1 2,9 9,5" fill="white" />
+  <polygon points="2,1 2,9 9,5" fill="white"></polygon>
 </svg>

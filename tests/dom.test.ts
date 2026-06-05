@@ -33,24 +33,24 @@ class MockParser implements IDomParser {
 }
 
 describe('DOM Registry and Parsers', () => {
-  it('should throw an error in Node.js environment when using default BrowserDomParser', () => {
+  it('auto-registers linkedom so BrowserDomParser works in Node without manual setup', () => {
+    // linkedom is now a direct dependency and dom.ts registers it automatically
     const parser = new BrowserDomParser();
-    expect(() => parser.parse('<div>hello</div>')).toThrow(
-      /DOMParser is not available/
-    );
+    const root = parser.parse('<div id="test">hello</div>');
+    expect(root.querySelector('#test')?.textContent).toBe('hello');
   });
 
   it('should successfully register and use a custom DOM parser', () => {
     DomRegistry.register(new MockParser());
-    
+
     const root = DomRegistry.parse('my-html-content');
     expect(root.textContent).toBe('my-html-content');
     expect(root.getAttribute('class')).toBe('mock-class');
-    
+
     const child = root.querySelector('span');
     expect(child).not.toBeNull();
     expect(child?.textContent).toBe('inner');
-    
+
     const divs = root.querySelectorAll('div');
     expect(divs).toHaveLength(2);
     expect(divs[0].textContent).toBe('div1');

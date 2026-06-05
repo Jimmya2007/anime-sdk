@@ -1,25 +1,27 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Nav from "../components/Nav.astro";
-import Hero from "../components/Hero.astro";
-import UseCases from "../components/sections/UseCases.astro";
-import Demo from "../components/sections/Demo.astro";
-import Server from "../components/sections/Server.astro";
-import Install from "../components/sections/Install.astro";
-import Providers from "../components/sections/Providers.astro";
-import Footer from "../components/Footer.astro";
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
+import UseCases from '../components/sections/UseCases.astro';
+import Demo from '../components/sections/Demo.astro';
+import Server from '../components/sections/Server.astro';
+import Install from '../components/sections/Install.astro';
+import Providers from '../components/sections/Providers.astro';
+import Contribute from '../components/sections/Contribute.astro';
+import Footer from '../components/Footer.astro';
 ---
 
 <Layout>
-  <div class="text-white font-sans">
-    <Nav />
+  <div class="font-sans text-white">
     <div class="frame">
+      <Nav />
       <Hero />
       <UseCases />
       <Demo />
       <Server />
       <Install />
       <Providers />
+      <Contribute />
       <Footer />
     </div>
   </div>

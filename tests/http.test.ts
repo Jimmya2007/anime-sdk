@@ -34,7 +34,7 @@ describe('HttpClient', () => {
     });
     const url = 'https://example.com/api/v1/media';
     expect(client.requestUrl(url)).toBe(
-      'https://myproxy.com/bypass?target=https%3A%2F%2Fexample.com%2Fapi%2Fv1%2Fmedia'
+      'https://myproxy.com/bypass?target=https%3A%2F%2Fexample.com%2Fapi%2Fv1%2Fmedia',
     );
   });
 
@@ -45,7 +45,7 @@ describe('HttpClient', () => {
     });
     const url = 'https://example.com/api/v1/media';
     expect(client.requestUrl(url)).toBe(
-      'https://myproxy.com/bypass?key=123&url=https%3A%2F%2Fexample.com%2Fapi%2Fv1%2Fmedia'
+      'https://myproxy.com/bypass?key=123&url=https%3A%2F%2Fexample.com%2Fapi%2Fv1%2Fmedia',
     );
   });
 

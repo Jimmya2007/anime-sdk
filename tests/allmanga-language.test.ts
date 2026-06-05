@@ -4,14 +4,8 @@
  * without making any network requests.
  */
 import { describe, it, expect } from 'vitest';
-import { DOMParser as LinkedDomParser } from 'linkedom';
 import { HttpClient } from '../src/transport/http.js';
 import { AllmangaProvider } from '../src/providers/AllmangaProvider.js';
-
-// Set up a DOMParser shim for the linkedom environment
-if (typeof globalThis.DOMParser === 'undefined') {
-  (globalThis as any).DOMParser = LinkedDomParser;
-}
 
 describe('AllmangaProvider – language / sub/dub', () => {
   const http = new HttpClient();

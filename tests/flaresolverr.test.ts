@@ -33,12 +33,13 @@ describe('FlareSolverrClient', () => {
     });
 
     it('accepts custom URL and timeout options', () => {
-      expect(() =>
-        new FlareSolverrClient({
-          url: 'http://custom-flare:8191',
-          timeoutMs: 120000,
-          maxTimeout: 60000,
-        })
+      expect(
+        () =>
+          new FlareSolverrClient({
+            url: 'http://custom-flare:8191',
+            timeoutMs: 120000,
+            maxTimeout: 60000,
+          }),
       ).not.toThrow();
     });
   });

@@ -1,0 +1,185 @@
+---
+title: HTTP Server
+description: Run ani-sdk as a standalone HTTP server and call it from any language over HTTP.
+---
+
+`startServer` launches a Node `http.Server` that exposes three routes matching the SDK's three operations. Pass the providers you want to expose and an optional bearer token.
+
+## Starting the server
+
+```ts
+import { DOMParser } from 'linkedom';
+import { HttpClient, AllmangaProvider, GogoanimeProvider, startServer } from 'ani-sdk';
+
+(globalThis as any).DOMParser = DOMParser;
+
+const server = startServer({
+  providers: [
+    new AllmangaProvider(new HttpClient()),
+    new GogoanimeProvider(new HttpClient({ timeoutMs: 10_000 })),
+  ],
+  port: 3000, // default: 3000
+});
+
+// server is an http.Server — you can call server.close() to shut it down
+```
+
+The server logs `ani-sdk server listening on http://localhost:3000` when ready.
+
+## Routes
+
+All routes are `GET` only. Errors return `{ error: string }` with the appropriate HTTP status.
+
+### `GET /search`
+
+Search for shows.
+
+| Param      | Required | Description                                       |
+| ---------- | -------- | ------------------------------------------------- |
+| `q`        | ✓        | Search query string                               |
+| `provider` | ✓        | Provider ID: `allmanga`, `gogoanime`, or `goyabu` |
+
+```sh
+curl 'localhost:3000/search?q=Frieren&provider=allmanga'
+```
+
+Response: `IMediaSearchResult[]`
+
+```json
+[
+  {
+    "id": "frieren-beyond-journeys-end",
+    "title": "Frieren: Beyond Journey's End",
+    "thumbnailUrl": "https://...",
+    "catalogType": "ANIME",
+    "providerId": "allmanga",
+    "availableLanguages": ["sub", "dub"]
+  }
+]
+```
+
+### `GET /content`
+
+List episodes for a show.
+
+| Param      | Required | Description                                                        |
+| ---------- | -------- | ------------------------------------------------------------------ |
+| `mediaId`  | ✓        | `id` from a search result                                          |
+| `provider` | ✓        | Provider ID                                                        |
+| `language` |          | `sub` \| `dub` \| `raw` (default: provider default, usually `sub`) |
+
+```sh
+curl 'localhost:3000/content?mediaId=frieren-beyond-journeys-end&provider=allmanga&language=sub'
+```
+
+Response: `IContentUnit[]`
+
+```json
+[
+  {
+    "id": "frieren-beyond-journeys-end/1/sub",
+    "title": "Episode 1",
+    "number": 1,
+    "language": "sub"
+  }
+]
+```
+
+### `GET /stream`
+
+Resolve a direct stream URL for an episode.
+
+| Param      | Required | Description                |
+| ---------- | -------- | -------------------------- |
+| `unitId`   | ✓        | `id` from a content result |
+| `provider` | ✓        | Provider ID                |
+| `language` |          | `sub` \| `dub` \| `raw`    |
+
+```sh
+curl 'localhost:3000/stream?unitId=frieren-beyond-journeys-end%2F1%2Fsub&provider=allmanga'
+```
+
+Response: `ResolvedMediaStream`
+
+```json
+{
+  "type": "video",
+  "streams": [
+    {
+      "sourceUrl": "https://a4.mp4upload.com:183/d/.../video.mp4",
+      "isHLS": false,
+      "quality": "auto",
+      "language": "sub",
+      "headers": { "Referer": "https://mp4upload.com/" }
+    }
+  ]
+}
+```
+
+## Authentication
+
+Lock the server behind a bearer token:
+
+```ts
+startServer({
+  providers: [new AllmangaProvider(new HttpClient())],
+  port: 3000,
+  auth: { token: process.env.API_TOKEN! },
+});
+```
+
+Clients include the token in the `Authorization` header:
+
+```sh
+curl -H 'Authorization: Bearer mysecret' 'localhost:3000/search?q=Naruto&provider=allmanga'
+```
+
+Requests without a valid token receive `401 Unauthorized`. Skip `auth` entirely for local use.
+
+## Error responses
+
+| Status | Meaning                                                        |
+| ------ | -------------------------------------------------------------- |
+| 400    | Missing or unknown query parameter                             |
+| 401    | Missing or invalid bearer token                                |
+| 404    | Unknown route                                                  |
+| 405    | Non-GET request                                                |
+| 500    | Provider threw an error (message is included in `error` field) |
+
+## Calling from other languages
+
+The server is the bridge for any client that can't run Node directly.
+
+**Python:**
+
+```python
+import httpx
+
+base = 'http://localhost:3000'
+headers = {'Authorization': 'Bearer mysecret'}
+
+shows = httpx.get(f'{base}/search', params={'q': 'Frieren', 'provider': 'allmanga'}, headers=headers).json()
+eps   = httpx.get(f'{base}/content', params={'mediaId': shows[0]['id'], 'provider': 'allmanga'}, headers=headers).json()
+data  = httpx.get(f'{base}/stream',  params={'unitId': eps[0]['id'], 'provider': 'allmanga'}, headers=headers).json()
+url   = data['streams'][0]['sourceUrl']
+```
+
+**Swift (iOS):**
+
+```swift
+let url = URL(string: "http://localhost:3000/search?q=Frieren&provider=allmanga")!
+let (data, _) = try await URLSession.shared.data(from: url)
+let shows = try JSONDecoder().decode([MediaSearchResult].self, from: data)
+```
+
+**Kotlin / Android:**
+
+```kotlin
+val client = OkHttpClient()
+val request = Request.Builder()
+    .url("http://10.0.2.2:3000/search?q=Frieren&provider=allmanga")
+    .build()
+val response = client.newCall(request).execute()
+```
+
+Note: in Android emulators, `localhost` on the host machine is reachable at `10.0.2.2`.

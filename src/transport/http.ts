@@ -79,23 +79,26 @@ export class HttpClient {
       return res;
     } catch (err: any) {
       clearTimeout(id);
-      
+
       // If the user explicitly aborted the request, propagate the error immediately
       if (options.signal?.aborted || (err.name === 'AbortError' && options.signal)) {
         throw err;
       }
-      
+
       // If we are in Node.js and the request failed or timed out, try falling back to curl
       if (typeof process !== 'undefined' && process.versions?.node) {
         try {
           const cp = await import('child_process');
           const execSync = cp.execSync;
-          
+
           if (!this.cookieFile) {
             try {
               const os = await import('os');
               const path = await import('path');
-              this.cookieFile = path.join(os.tmpdir(), `ani-sdk-cookie-${Math.random().toString(36).substring(2)}.txt`);
+              this.cookieFile = path.join(
+                os.tmpdir(),
+                `ani-sdk-cookie-${Math.random().toString(36).substring(2)}.txt`,
+              );
             } catch (e) {
               this.cookieFile = `/tmp/ani-sdk-cookie-${Math.random().toString(36).substring(2)}.txt`;
             }
@@ -137,7 +140,7 @@ export class HttpClient {
           const curlCmd = `curl -sL --max-time 10${methodArg}${headerArgs}${bodyArg}${cookieArg} -i ${JSON.stringify(targetUrl)}`;
           const output = execSync(curlCmd, { maxBuffer: 10 * 1024 * 1024 });
           const outputStr = output.toString('binary');
-          
+
           const parts = outputStr.split('\r\n\r\n');
           // Find the last HTTP header section
           let headerSection = '';
@@ -154,7 +157,7 @@ export class HttpClient {
           const statusLine = headerLines[0];
           const statusMatch = statusLine.match(/HTTP\/\d+(\.\d+)?\s+(\d+)/);
           const status = statusMatch ? parseInt(statusMatch[2], 10) : 200;
-          
+
           const responseHeaders = new Headers();
           for (let i = 1; i < headerLines.length; i++) {
             const line = headerLines[i];
@@ -228,7 +231,12 @@ export class HttpClient {
       }
     }
     let finalBody = body;
-    if (body && typeof body === 'object' && !(body instanceof FormData) && !(body instanceof URLSearchParams)) {
+    if (
+      body &&
+      typeof body === 'object' &&
+      !(body instanceof FormData) &&
+      !(body instanceof URLSearchParams)
+    ) {
       if (!headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
       }
@@ -239,8 +247,8 @@ export class HttpClient {
 
   public setCookie(name: string, value: string): void {
     const existingCookie = this.defaultHeaders['Cookie'] || '';
-    const cookies = existingCookie ? existingCookie.split(';').map(c => c.trim()) : [];
-    const newCookies = cookies.filter(c => !c.startsWith(`${name}=`));
+    const cookies = existingCookie ? existingCookie.split(';').map((c) => c.trim()) : [];
+    const newCookies = cookies.filter((c) => !c.startsWith(`${name}=`));
     newCookies.push(`${name}=${value}`);
     this.defaultHeaders['Cookie'] = newCookies.join('; ');
   }
@@ -248,5 +256,4 @@ export class HttpClient {
   public setUserAgent(userAgent: string): void {
     this.defaultHeaders['User-Agent'] = userAgent;
   }
-
 }

@@ -6,7 +6,7 @@ const serverStartCode = `<code><span class="kw">import</span> <span class="pun">
   port<span class="pun">:</span> <span class="num">3000</span><span class="pun">,</span>
 <span class="pun">});</span>
 
-<span class="cm">// → http://localhost:3000</span></code>`
+<span class="cm">// → http://localhost:3000</span></code>`;
 
 const serverCurlCode = `<code><span class="cm"># search</span>
 curl <span class="str">'localhost:3000/search?q=One+Piece&amp;provider=allmanga'</span>
@@ -15,7 +15,7 @@ curl <span class="str">'localhost:3000/search?q=One+Piece&amp;provider=allmanga'
 curl <span class="str">'localhost:3000/content?mediaId=...&amp;provider=allmanga'</span>
 
 <span class="cm"># stream URL</span>
-curl <span class="str">'localhost:3000/stream?unitId=...&amp;language=sub'</span></code>`
+curl <span class="str">'localhost:3000/stream?unitId=...&amp;language=sub'</span></code>`;
 
 const serverAuthCode = `<code><span class="fn">startServer</span><span class="pun">({</span>
   providers<span class="pun">:</span> <span class="pun">[</span><span class="kw">new</span> <span class="fn">AllmangaProvider</span><span class="pun">(</span><span class="kw">new</span> <span class="fn">HttpClient</span><span class="pun">())],</span>
@@ -24,53 +24,50 @@ const serverAuthCode = `<code><span class="fn">startServer</span><span class="pu
 <span class="pun">});</span>
 
 <span class="cm">// Clients send:</span>
-<span class="cm">// Authorization: Bearer &lt;token&gt;</span></code>`
+<span class="cm">// Authorization: Bearer &lt;token&gt;</span></code>`;
 ---
 
 <section id="server">
-  <div class="hline py-8 px-10 flex items-start justify-between flex-wrap gap-3">
+  <div class="hline flex flex-wrap items-start justify-between gap-3 px-10 py-8">
     <div>
-      <div class="flex items-center gap-3 mb-1">
+      <div class="mb-1 flex items-center gap-3">
         <h2 class="text-[28px] font-bold tracking-tight">Skip the API boilerplate.</h2>
       </div>
       <p class="text-[14px]" style="color: var(--muted);">
-        ani-sdk ships with a ready-to-run HTTP server. Same three
-        operations, now as routes. Add a bearer token for auth, point
-        any client at it, ship.
+        ani-sdk ships with a ready-to-run HTTP server. Same three operations, now as routes. Add a
+        bearer token for auth, point any client at it, ship.
       </p>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 hline">
+  <div class="hline grid grid-cols-1 lg:grid-cols-3">
     <div class="cell no-bottom show-dots px-8 py-8">
-      <div class="flex items-center gap-3 mb-5">
+      <div class="mb-5 flex items-center gap-3">
         <span class="badge badge-ok">Start it</span>
-        <span class="text-[11px] font-mono" style="color: var(--muted);">server.ts</span>
+        <span class="font-mono text-[11px]" style="color: var(--muted);">server.ts</span>
       </div>
-      <pre class="text-[12px] font-mono leading-[1.85] text-zinc-300" set:html={serverStartCode} />
+      <pre class="font-mono text-[12px] leading-[1.85] text-zinc-300" set:html={serverStartCode} />
     </div>
 
     <div class="cell no-bottom show-dots px-8 py-8">
-      <div class="flex items-center gap-3 mb-5">
+      <div class="mb-5 flex items-center gap-3">
         <span class="badge badge-muted">Call it from anywhere</span>
-        <span class="text-[11px] font-mono" style="color: var(--muted);">curl / fetch / axios</span>
+        <span class="font-mono text-[11px]" style="color: var(--muted);">curl / fetch / axios</span>
       </div>
-      <pre class="text-[12px] font-mono leading-[1.85] text-zinc-300" set:html={serverCurlCode} />
-      <p class="text-[11.5px] mt-4 leading-relaxed" style="color: var(--muted);">
-        Any client that speaks HTTP — React Native, Swift, Kotlin,
-        Flutter, Python, you name it.
+      <pre class="font-mono text-[12px] leading-[1.85] text-zinc-300" set:html={serverCurlCode} />
+      <p class="mt-4 text-[11.5px] leading-relaxed" style="color: var(--muted);">
+        Any client that speaks HTTP — React Native, Swift, Kotlin, Flutter, Python, you name it.
       </p>
     </div>
 
     <div class="cell no-right no-bottom show-dots px-8 py-8">
-      <div class="flex items-center gap-3 mb-5">
+      <div class="mb-5 flex items-center gap-3">
         <span class="badge badge-muted">Lock it down</span>
-        <span class="text-[11px] font-mono" style="color: var(--muted);">optional</span>
+        <span class="font-mono text-[11px]" style="color: var(--muted);">optional</span>
       </div>
-      <pre class="text-[12px] font-mono leading-[1.85] text-zinc-300" set:html={serverAuthCode} />
-      <p class="text-[11.5px] mt-4 leading-relaxed" style="color: var(--muted);">
-        Skip auth entirely if it's local. The SDK works standalone too —
-        no server required.
+      <pre class="font-mono text-[12px] leading-[1.85] text-zinc-300" set:html={serverAuthCode} />
+      <p class="mt-4 text-[11.5px] leading-relaxed" style="color: var(--muted);">
+        Skip auth entirely if it's local. The SDK works standalone too — no server required.
       </p>
     </div>
   </div>

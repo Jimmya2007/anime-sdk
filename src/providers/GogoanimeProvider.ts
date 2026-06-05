@@ -25,7 +25,7 @@ export class GogoanimeProvider extends BaseProvider {
     }
     if (!this.http.getDefaultHeaders()['User-Agent']) {
       this.http.setUserAgent(
-        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       );
     }
   }
@@ -60,7 +60,9 @@ export class GogoanimeProvider extends BaseProvider {
       if (img) {
         const src = img.getAttribute('src') || '';
         if (src) {
-          thumbnailUrl = src.startsWith('http') ? src : `${this.baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
+          thumbnailUrl = src.startsWith('http')
+            ? src
+            : `${this.baseUrl}${src.startsWith('/') ? '' : '/'}${src}`;
         }
       }
 
@@ -79,7 +81,10 @@ export class GogoanimeProvider extends BaseProvider {
   /**
    * Fetch all content units (episodes) for a given AniNeko anime ID (e.g., "/watch/slug").
    */
-  public async fetchContentUnits(mediaId: string, _language?: import('../types/index.js').ContentLanguage): Promise<IContentUnit[]> {
+  public async fetchContentUnits(
+    mediaId: string,
+    _language?: import('../types/index.js').ContentLanguage,
+  ): Promise<IContentUnit[]> {
     let watchUrlPath = mediaId;
     // Normalize path to watch page if it is an episode URL
     if (mediaId.includes('/watch/')) {
@@ -114,14 +119,14 @@ export class GogoanimeProvider extends BaseProvider {
 
       const strong = a.querySelector('strong');
       const span = a.querySelector('span');
-      
+
       const numText = strong ? (strong.textContent || '').trim() : '';
       const titleText = span ? (span.textContent || '').trim() : '';
 
       const epMatch = href.match(/ep-(\d+(\.\d+)?)/);
       const number = epMatch ? parseFloat(epMatch[1]) : 0;
 
-      const displayTitle = titleText ? `${numText} - ${titleText}` : (numText || `Episode ${number}`);
+      const displayTitle = titleText ? `${numText} - ${titleText}` : numText || `Episode ${number}`;
       const id = href.startsWith('/') ? href : `/${href}`;
 
       units.push({
@@ -138,7 +143,10 @@ export class GogoanimeProvider extends BaseProvider {
   /**
    * Resolve playback stream for a specific content unit (episode) URL path.
    */
-  public async resolveStream(unitId: string, _language?: import('../types/index.js').ContentLanguage): Promise<ResolvedMediaStream> {
+  public async resolveStream(
+    unitId: string,
+    _language?: import('../types/index.js').ContentLanguage,
+  ): Promise<ResolvedMediaStream> {
     const fullUrl = `${this.baseUrl}${unitId.startsWith('/') ? '' : '/'}${unitId}`;
     const response = await this.http.get(fullUrl);
     if (response.status !== 200) {
@@ -159,7 +167,7 @@ export class GogoanimeProvider extends BaseProvider {
       // Extract server label and tab context
       const labelText = (btn.textContent || '').replace(/\s+/g, ' ').trim();
       const tabId = btn.getAttribute('data-tab') || '';
-      
+
       // Determine quality or translation status (SUB vs DUB)
       let qualityLabel: '1080p' | '720p' | '360p' | 'auto' = 'auto';
       if (labelText.toLowerCase().includes('1080')) qualityLabel = '1080p';

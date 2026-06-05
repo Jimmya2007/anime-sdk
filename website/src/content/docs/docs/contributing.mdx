@@ -1,0 +1,318 @@
+---
+title: Contributing
+description: How to add a new provider or extractor, and what the live E2E test suite expects.
+---
+
+## What we want
+
+### New providers
+
+The highest-value contribution. A good target is a site that:
+
+- Has a public search endpoint (no login required)
+- Hosts direct HLS or MP4 streams, possibly behind a simple embed layer
+- Covers a language or catalogue not already served by the three existing providers
+
+If the site is Cloudflare-protected, it's still welcome — accept `FlareSolverrClient` as an optional constructor argument and throw a clear error when it's absent.
+
+### Bug fixes for existing providers
+
+Site layouts change. If a provider's scraping logic breaks because the upstream site updated its HTML, a targeted fix with a passing E2E test is always welcome. Open an issue first if the fix is large.
+
+### New extractors
+
+Add one when the embed format is genuinely novel — not handled by `GenericHlsExtractor`, `Mp4UploadExtractor`, `BloggerExtractor`, or `VidstreamingExtractor`. Common cases: new obfuscation schemes (encrypted player config, custom XOR), embed hosts that require a multi-step auth flow, or platforms that gate streams behind a non-standard API.
+
+### Transport and HTTP server improvements
+
+- Proxy mode extensions (new `proxyType` variants, header-based routing)
+- Better `curl` fallback diagnostics
+- HTTP server: new routes, streaming responses, per-provider auth
+- Bun compatibility fixes
+
+### Unit tests
+
+Edge cases in `HlsUtils.rewriteManifest`, `FlareSolverrClient` response parsing, extractor HTML fixtures, language inference — these are always welcome and run in CI without a network.
+
+---
+
+## What's out of scope
+
+| Area                                 | Why                                                                                                                                                                                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Downloading / saving media**       | ani-sdk resolves URLs. Feeding them to `ffmpeg` or `yt-dlp` is the consumer's job, not the SDK's.                                                                                                                                               |
+| **Browser / frontend support**       | The SDK depends on `child_process` (curl fallback), Node-specific `crypto.subtle` usage, and shell-out for E2E tests. Browser support would require a fundamentally different transport layer and likely wouldn't work due to CORS constraints. |
+| **UI components or players**         | ani-sdk is a headless library. Rendering is out of scope.                                                                                                                                                                                       |
+| **Login-gated or paywall sites**     | ani-sdk is for publicly accessible streams. Sites that require accounts are out of scope.                                                                                                                                                       |
+| **Caching or rate-limiting layers**  | Those belong in the application layer, not the SDK.                                                                                                                                                                                             |
+| **CLI wrappers or download scripts** | Out of scope — use the HTTP server or call the SDK directly.                                                                                                                                                                                    |
+| **Mocked E2E tests**                 | All E2E tests must hit live sites. A provider test that passes with mocks but fails against the real site is worse than no test.                                                                                                                |
+
+---
+
+## Overview
+
+ani-sdk has three layers:
+
+- **Transport** (`src/transport/`) — `HttpClient`, `DomRegistry`, `HlsUtils`, `FlareSolverrClient`. Rarely needs changes for new providers.
+- **Extractors** (`src/extractors/`) — stateless embed parsers. Add one when an embed platform is genuinely novel.
+- **Providers** (`src/providers/`) — site-specific adapters. This is where most contributions live.
+
+All relative imports in `src/` must include the `.js` extension (`import { X } from './foo.js'`). TypeScript is configured with `module: NodeNext`.
+
+---
+
+## Adding a provider
+
+### 1. Create `src/providers/MyProvider.ts`
+
+```ts
+import { BaseProvider } from './BaseProvider.js';
+import { HttpClient } from '../transport/http.js';
+import { DomRegistry } from '../transport/dom.js';
+import type {
+  IMediaSearchResult,
+  IContentUnit,
+  ResolvedMediaStream,
+  MediaCatalogType,
+  ContentLanguage,
+} from '../types/index.js';
+
+export interface MyProviderOptions {
+  baseUrl?: string;
+}
+
+export class MyProvider extends BaseProvider {
+  public readonly id = 'myprovider';
+  public readonly supportedTypes: MediaCatalogType[] = ['ANIME'];
+  private baseUrl = 'https://example-anime-site.com';
+
+  constructor(http: HttpClient, options: MyProviderOptions = {}) {
+    super(http);
+    if (options.baseUrl) this.baseUrl = options.baseUrl;
+  }
+
+  public async search(query: string): Promise<IMediaSearchResult[]> {
+    const res = await this.http.get(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`);
+    if (res.status !== 200) throw new Error(`Search failed: ${res.status}`);
+
+    const html = await res.text();
+    const doc = DomRegistry.parse(html);
+
+    return doc.querySelectorAll('.anime-card').map((card) => ({
+      id: card.querySelector('a')?.getAttribute('href') ?? '',
+      title: (card.querySelector('h3')?.textContent ?? '').trim(),
+      catalogType: 'ANIME',
+      providerId: this.id,
+    }));
+  }
+
+  public async fetchContentUnits(
+    mediaId: string,
+    language?: ContentLanguage,
+  ): Promise<IContentUnit[]> {
+    const res = await this.http.get(`${this.baseUrl}${mediaId}`);
+    if (res.status !== 200) throw new Error(`Failed to fetch: ${res.status}`);
+
+    const html = await res.text();
+    const doc = DomRegistry.parse(html);
+
+    return doc.querySelectorAll('.episode-item a').map((a, i) => ({
+      id: a.getAttribute('href') ?? '',
+      title: `Episode ${i + 1}`,
+      number: i + 1,
+      language: language ?? 'sub',
+    }));
+  }
+
+  public async resolveStream(
+    unitId: string,
+    language?: ContentLanguage,
+  ): Promise<ResolvedMediaStream> {
+    const res = await this.http.get(`${this.baseUrl}${unitId}`);
+    if (res.status !== 200) throw new Error(`Failed to fetch: ${res.status}`);
+
+    const html = await res.text();
+    const embedUrl = html.match(/src=["'](https:\/\/embed\.example\.com\/[^"']+)["']/)?.[1];
+    if (!embedUrl) throw new Error('No embed URL found');
+
+    // Use an existing extractor:
+    const { GenericHlsExtractor } = await import('../extractors/GenericHlsExtractor.js');
+    const extractor = new GenericHlsExtractor(this.http);
+    const streams = await extractor.extract(embedUrl);
+    if (streams.length === 0) throw new Error('No streams extracted');
+
+    return { type: 'video', streams };
+  }
+}
+```
+
+### 2. Export from `src/index.ts`
+
+```ts
+export * from './providers/MyProvider.js';
+```
+
+### 3. Add a live E2E test
+
+Create `tests/e2e/myprovider.test.ts`. The test must resolve a real stream and pass it to `captureStreamScreenshot` — no mocking allowed. The function walks candidates in order and extracts a frame with ffmpeg.
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { HttpClient, MyProvider } from '../../src/index.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
+
+describe('MyProvider', () => {
+  it(
+    'resolves a stream and screenshots it',
+    async () => {
+      const provider = new MyProvider(new HttpClient());
+
+      const shows = await provider.search('Frieren');
+      expect(shows.length).toBeGreaterThan(0);
+
+      const eps = await provider.fetchContentUnits(shows[0].id);
+      expect(eps.length).toBeGreaterThan(0);
+
+      const result = await provider.resolveStream(eps[0].id);
+      expect(result.type).toBe('video');
+      if (result.type !== 'video') return;
+
+      // captureStreamScreenshot(providerId, streams) — accepts IVideoPayload | IVideoPayload[]
+      const { outputPath } = await captureStreamScreenshot('myprovider', result.streams);
+      const stat = (await import('fs')).statSync(outputPath);
+      expect(stat.size).toBeGreaterThan(1024);
+    },
+    { timeout: 90_000 },
+  );
+});
+```
+
+`captureStreamScreenshot` returns `{ outputPath, stream, attemptedCount }`. It writes to `scratch/screenshots/screenshot_myprovider.png`.
+
+---
+
+## Adding an extractor
+
+Add an extractor when the embed format isn't handled by `GenericHlsExtractor`, `Mp4UploadExtractor`, `BloggerExtractor`, or `VidstreamingExtractor`.
+
+### 1. Create `src/extractors/MyExtractor.ts`
+
+```ts
+import { BaseExtractor } from './BaseExtractor.js';
+import type { IVideoPayload } from '../types/index.js';
+
+export class MyExtractor extends BaseExtractor {
+  public readonly id = 'myextractor';
+
+  // Optional: static URL matcher so providers can guard before calling extract()
+  static matches(url: string): boolean {
+    return /(?:^|\.)myembedhost\.com\//i.test(url);
+  }
+
+  public async extract(embedUrl: string): Promise<IVideoPayload[]> {
+    const res = await this.http.get(embedUrl, {
+      headers: { Referer: 'https://referring-site.com/' },
+    });
+    if (res.status !== 200) return []; // return [] on failure, never throw
+
+    const html = await res.text();
+    const match = html.match(/"file"\s*:\s*"(https?:\/\/[^"]+\.m3u8)"/);
+    if (!match) return [];
+
+    return [
+      {
+        sourceUrl: match[1],
+        isHLS: true,
+        quality: 'auto',
+        headers: { Referer: embedUrl },
+      },
+    ];
+  }
+}
+```
+
+**Rules:**
+
+- Always return `[]` when the extractor can't handle a URL — never throw.
+- Stay stateless: extractors are constructed fresh by providers per-request.
+- Include `Referer` and `User-Agent` headers in returned payloads when the CDN requires them.
+
+### 2. Export from `src/index.ts`
+
+```ts
+export * from './extractors/MyExtractor.js';
+```
+
+---
+
+## Cloudflare-protected sites
+
+If the target site is behind Cloudflare or DDoS-Guard:
+
+```ts
+import type { FlareSolverrClient } from '../transport/flaresolverr.js';
+
+export class MyProvider extends BaseProvider {
+  constructor(
+    http: HttpClient,
+    private flare?: FlareSolverrClient,
+  ) {
+    super(http);
+  }
+
+  public async search(query: string) {
+    if (!this.flare) {
+      throw new Error('MyProvider requires FlareSolverrClient — this site is CF-protected');
+    }
+    const res = await this.flare.get(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`);
+    // res.text() / res.json() / res.headers / res.url
+    const html = res.text();
+    // ...
+  }
+}
+```
+
+Check `await flare.isAvailable()` in the test setup to skip gracefully if FlareSolverr isn't running.
+
+---
+
+## Running tests
+
+```sh
+# Full suite (unit + live E2E, ~60–90s)
+npm run test:run
+
+# Just E2E tests
+npx vitest run tests/e2e
+
+# Single provider
+npx vitest run tests/e2e/myprovider.test.ts
+
+# Single test by name pattern
+npx vitest run -t "resolves a stream"
+```
+
+E2E tests have a 90-second timeout. They require an internet connection. Screenshots land in `scratch/screenshots/` (gitignored).
+
+**Build:**
+
+```sh
+npm run build   # tsc → dist/ (ESM, NodeNext)
+```
+
+`tests/`, `references/`, and `dist/` are excluded from the TypeScript build.
+
+---
+
+## Checklist for a new provider
+
+- [ ] Extends `BaseProvider`, sets `id` and `supportedTypes`
+- [ ] Accepts `HttpClient` in constructor; optionally accepts provider-specific options via an interface
+- [ ] `search` returns `IMediaSearchResult[]` with `id`, `title`, `catalogType`, `providerId`
+- [ ] `fetchContentUnits` returns `IContentUnit[]` sorted by `number`
+- [ ] `resolveStream` returns `ResolvedMediaStream` — at minimum `{ type: 'video', streams: [...] }`
+- [ ] All imports use `.js` extension
+- [ ] Exported from `src/index.ts`
+- [ ] Live E2E test using `captureStreamScreenshot` — no mocking, 90s timeout
+- [ ] CF-protected sites: accepts `FlareSolverrClient` optionally, throws clear error when absent

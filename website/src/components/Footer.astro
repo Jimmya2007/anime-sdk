@@ -1,19 +1,35 @@
 ---
-import LogoIcon from './icons/LogoIcon.astro'
+import LogoIcon from './icons/LogoIcon.astro';
 ---
 
-<footer class="hline px-10 py-7 flex items-center justify-between flex-wrap gap-4">
+<footer class="hline flex flex-wrap items-center justify-between gap-4 px-10 py-7">
   <div class="flex items-center gap-3">
-    <div class="w-[20px] h-[20px] bg-violet-500 flex items-center justify-center">
+    <div class="flex h-[20px] w-[20px] items-center justify-center bg-violet-500">
       <LogoIcon size={9} />
     </div>
-    <span class="font-semibold text-[13px]">ani-sdk</span>
+    <span class="text-[13px] font-semibold">ani-sdk</span>
     <span class="text-[12px]" style="color: var(--muted);">— MIT</span>
   </div>
   <div class="flex items-center gap-6 text-[13px]" style="color: var(--muted);">
-    <a href="https://github.com/hexxt-git/ani-sdk" target="_blank" class="hover:text-white transition-colors">GitHub</a>
-    <a href="https://github.com/hexxt-git/ani-sdk/blob/master/README.md" target="_blank" class="hover:text-white transition-colors">README</a>
-    <a href="https://github.com/hexxt-git/ani-sdk/blob/master/FLARESOLVERR.md" target="_blank" class="hover:text-white transition-colors">FlareSolverr</a>
-    <a href="https://github.com/hexxt-git/ani-sdk/issues" target="_blank" class="hover:text-white transition-colors">Issues</a>
+    <a
+      href="https://github.com/hexxt-git/ani-sdk"
+      target="_blank"
+      class="transition-colors hover:text-white">GitHub</a
+    >
+    <a
+      href="https://github.com/hexxt-git/ani-sdk/blob/master/README.md"
+      target="_blank"
+      class="transition-colors hover:text-white">README</a
+    >
+    <a
+      href="https://github.com/hexxt-git/ani-sdk/blob/master/FLARESOLVERR.md"
+      target="_blank"
+      class="transition-colors hover:text-white">FlareSolverr</a
+    >
+    <a
+      href="https://github.com/hexxt-git/ani-sdk/issues"
+      target="_blank"
+      class="transition-colors hover:text-white">Issues</a
+    >
   </div>
 </footer>
