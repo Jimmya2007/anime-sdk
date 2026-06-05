@@ -1,0 +1,58 @@
+---
+import HeroBackground from './islands/HeroBackground'
+import HeroStats from './HeroStats.astro'
+---
+
+<!-- HERO -->
+<section style="position: relative; overflow: hidden; min-height: 560px;">
+  <HeroBackground client:load />
+
+  <!-- Vignette: bottom fade -->
+  <div style="position: absolute; inset: 0; pointer-events: none; z-index: 1; background: linear-gradient(to bottom, #111113 0%, transparent 28%, transparent 48%, rgba(17,17,19,0.88) 75%, #111113 100%);" />
+  <!-- Vignette: left fade -->
+  <div style="position: absolute; inset: 0; pointer-events: none; z-index: 1; background: linear-gradient(to right, #111113 0%, rgba(17,17,19,0.5) 18%, transparent 40%);" />
+  <!-- Vignette: right fade -->
+  <div style="position: absolute; inset: 0; pointer-events: none; z-index: 1; background: linear-gradient(to left, #111113 0%, transparent 30%);" />
+
+  <!-- Content -->
+  <div
+    style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 120px 40px 90px;"
+  >
+    <div class="label mb-5">TypeScript · MIT · Node 20+</div>
+    <h1
+      class="font-black tracking-[-0.03em] leading-[1.0] mb-5"
+      style="font-size: clamp(40px, 5vw, 58px); max-width: 680px;"
+    >
+      Build your anime app.
+      <br />
+      <span class="gradient-text">We'll handle the streams.</span>
+    </h1>
+    <p
+      class="text-[14.5px] leading-[1.75] mb-8"
+      style="color: var(--muted); max-width: 460px;"
+    >
+      Direct video URLs from the anime sites people actually watch on.
+      Drop ani-sdk into your mobile app, website, desktop client, CLI, or
+      server — or run the built-in HTTP server and call it from anywhere.
+      No headless browser, no scrapers to maintain.
+    </p>
+    <div class="flex items-center gap-4">
+      <a
+        href="#install"
+        class="bg-white text-black font-semibold text-[13px] px-5 py-2.5 hover:bg-zinc-100 transition-colors"
+      >
+        Get started →
+      </a>
+      <a
+        href="https://github.com/hexxt-git/ani-sdk"
+        target="_blank"
+        class="text-[13px] font-medium hover:text-white transition-colors"
+        style="color: var(--muted);"
+      >
+        View on GitHub ↗
+      </a>
+    </div>
+  </div>
+</section>
+
+<HeroStats />
