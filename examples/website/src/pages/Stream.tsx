@@ -156,6 +156,22 @@ function Player({
   );
 }
 
+function MangaReader({ pages }: { pages: api.MangaStream }) {
+  return (
+    <div className="flex flex-col items-center gap-4 bg-black">
+      {pages.imageUrls.map((url, i) => (
+        <img
+          key={i}
+          src={url}
+          alt={`Page ${i + 1}`}
+          className="min-h-64 max-w-full"
+          loading="lazy"
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function Stream() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
@@ -165,6 +181,11 @@ export default function Stream() {
   const title = sp.get('title') || '';
   const mediaId = sp.get('mid') || '';
   const epLabel = sp.get('ep') || '';
+  const type = sp.get('type') || 'ANIME';
+
+  const isManga = type === 'MANGA';
+  const unitLabel = isManga ? 'CHAPTERS' : 'EPISODES';
+  const unitPrefix = isManga ? 'Chapter' : 'EP';
 
   // Language lives in component state — never in the URL. The episode list is
   // language-agnostic; only the playback resolution needs a language pick.
@@ -182,7 +203,7 @@ export default function Stream() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const currentEpNum = epLabel ? parseFloat(epLabel.replace(/^EP\.0*/i, '')) : null;
+  const currentEpNum = epLabel ? parseFloat(epLabel.replace(/^[A-Z]+\.0*/i, '')) : null;
   const currentIdx = episodes?.findIndex((e) => e.number === currentEpNum) ?? -1;
   const currentEpisode = currentIdx >= 0 ? episodes![currentIdx] : null;
   const availableLangs = currentEpisode?.availableLanguages ?? ['sub'];
@@ -212,7 +233,7 @@ export default function Stream() {
   const goEpisode = (ep: api.Episode) =>
     navigate(
       `/stream?provider=${provider}&uid=${encodeURIComponent(ep.id)}` +
-        `&title=${encodeURIComponent(title)}&ep=${encodeURIComponent(`EP.${String(ep.number).padStart(3, '0')}`)}&mid=${encodeURIComponent(mediaId)}`,
+        `&title=${encodeURIComponent(title)}&ep=${encodeURIComponent(`${unitPrefix}.${String(ep.number).padStart(3, '0')}`)}&mid=${encodeURIComponent(mediaId)}&type=${type}`,
     );
 
   // Reset active source when stream changes
@@ -225,7 +246,9 @@ export default function Stream() {
       <div className="mt-5 mb-5">
         {isFetching && (
           <div className="flex aspect-video items-center justify-center border border-[#1e1e1e] bg-[#0d0d0d]">
-            <p className="text-xs tracking-widest text-[#333]">resolving stream...</p>
+            <p className="text-xs tracking-widest text-[#333]">
+              resolving {isManga ? 'pages' : 'stream'}...
+            </p>
           </div>
         )}
         {isError && (
@@ -233,7 +256,10 @@ export default function Stream() {
             <p className="text-xs text-red-900">{String(error)}</p>
           </div>
         )}
-        {active && <Player key={active.sourceUrl} stream={active} subtitles={subtitles} />}
+        {data?.type === 'video' && active && (
+          <Player key={active.sourceUrl} stream={active} subtitles={subtitles} />
+        )}
+        {data?.type === 'manga' && data.pages && <MangaReader pages={data.pages} />}
       </div>
 
       {/* Language toggle — only the translations this specific episode actually
@@ -264,7 +290,7 @@ export default function Stream() {
               onClick={() => setShowEpisodes((v) => !v)}
               className="text-xs tracking-widest text-[#444] transition-colors hover:text-[#777]"
             >
-              EPISODES <span className="text-[#333]">({episodes.length})</span>{' '}
+              {unitLabel} <span className="text-[#333]">({episodes.length})</span>{' '}
               {showEpisodes ? '▲' : '▼'}
             </button>
             <div className="flex gap-3">
@@ -298,7 +324,7 @@ export default function Stream() {
                     <span
                       className={`mr-4 shrink-0 text-xs ${isCurrent ? 'text-white' : 'text-[#444]'}`}
                     >
-                      EP.{String(ep.number).padStart(3, '0')}
+                      {unitPrefix}.{String(ep.number).padStart(3, '0')}
                     </span>
                     <span
                       className={`flex-1 truncate text-xs ${isCurrent ? 'text-[#bbb]' : 'text-[#333]'}`}

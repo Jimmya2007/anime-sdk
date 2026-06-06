@@ -35,6 +35,9 @@ The SDK has three layers, all wired around a single `HttpClient`:
 - `AllmangaProvider` — AllAnime GraphQL → AES-CTR-decrypted `tobeparsed` payload → `Mp4UploadExtractor`, with a `clock.json` fallback for wixmp/sharepoint sources. Source URLs are obfuscated with a `--<hex>` scheme XOR'd with `0x38`; see `decodeAllAnimeSource`. `fetchContentUnits` merges `availableEpisodesDetail.sub` + `.dub` + `.raw` into a single language-agnostic list; unit IDs are `${mediaId}/${epStr}` (legacy `${mediaId}/${epStr}/${lang}` IDs still resolve).
 - `GogoanimeProvider` — HTML scrape of `anineko.to`; vibeplayer embed → `master.m3u8` via `GenericHlsExtractor`.
 - `GoyabuProvider` — pulls a Blogger token from `playersData`, calls Google `batchexecute` to recover the `googlevideo.com` URL via `BloggerExtractor`.
+- `MangadexProvider` — Official JSON API at `api.mangadex.org` for high-quality manga.
+- `WeebcentralProvider` — HTML scrape of `weebcentral.com` for manga.
+- `MangapillProvider` — HTML scrape of `mangapill.com` for manga.
 
 All public surface is re-exported from `src/index.ts`, including the shared subtitle utilities (`normalizeSubtitleEntries`, `proxifySubtitleUrl`).
 

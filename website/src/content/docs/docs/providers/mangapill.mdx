@@ -1,0 +1,30 @@
+---
+title: MangaPill
+description: How to use the MangapillProvider in ani-sdk.
+---
+
+The `MangapillProvider` scrapes `mangapill.com`. It is known for its efficient layout and fast loading of chapter pages.
+
+## Usage
+
+```ts
+import { HttpClient, MangapillProvider, DomRegistry } from 'ani-sdk';
+
+const http = new HttpClient();
+const domParser = DomRegistry.getParser();
+const provider = new MangapillProvider(http, domParser);
+
+const results = await provider.search('Frieren');
+const chapters = await provider.fetchContentUnits(results[0].id);
+const pages = await provider.resolveStream(chapters[0].id);
+```
+
+## Characteristics
+
+| Feature       | Details       |
+| ------------- | ------------- |
+| **Catalog**   | Manga         |
+| **Languages** | `sub`         |
+| **Method**    | HTML scraping |
+
+MangaPill is a solid choice for mainstream manga, offering a simple and effective way to access chapter image lists.

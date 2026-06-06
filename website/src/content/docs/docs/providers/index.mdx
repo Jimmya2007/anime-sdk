@@ -1,18 +1,21 @@
 ---
 title: Providers
-description: Overview of the three live-tested anime stream providers in ani-sdk.
+description: Overview of the seven live-tested anime and manga providers in ani-sdk.
 ---
 
-A provider is a site-specific adapter that maps search queries and episode IDs to direct stream URLs. All four ship with ani-sdk and are verified on every release.
+A provider is a site-specific adapter that maps search queries and episode/chapter IDs to direct stream or image URLs. All seven ship with ani-sdk and are verified on every release.
 
 ## Available providers
 
-| ID              | Class                   | Domain            | Languages     | Subtitles | Method            |
-| --------------- | ----------------------- | ----------------- | ------------- | --------- | ----------------- |
-| `animeparadise` | `AnimeParadiseProvider` | animeparadise.moe | sub           | yes (VTT) | REST API          |
-| `allmanga`      | `AllmangaProvider`      | allmanga.to       | sub, dub, raw | no        | GraphQL + AES-CTR |
-| `gogoanime`     | `GogoanimeProvider`     | anineko.to        | sub           | no        | HTML scrape + HLS |
-| `goyabu`        | `GoyabuProvider`        | goyabu.io         | raw (pt-br)   | no        | batchexecute RPC  |
+| ID              | Class                   | Domain            | Content Type | Languages     | Subtitles | Method            |
+| --------------- | ----------------------- | ----------------- | ------------ | ------------- | --------- | ----------------- |
+| `animeparadise` | `AnimeParadiseProvider` | animeparadise.moe | ANIME        | sub           | yes (VTT) | REST API          |
+| `allmanga`      | `AllmangaProvider`      | allmanga.to       | ANIME        | sub, dub, raw | no        | GraphQL + AES-CTR |
+| `gogoanime`     | `GogoanimeProvider`     | anineko.to        | ANIME        | sub           | no        | HTML scrape + HLS |
+| `goyabu`        | `GoyabuProvider`        | goyabu.io         | ANIME        | raw (pt-br)   | no        | batchexecute RPC  |
+| `mangadex`      | `MangadexProvider`      | mangadex.org      | MANGA        | sub           | no        | JSON API          |
+| `weebcentral`   | `WeebcentralProvider`   | weebcentral.com   | MANGA        | sub           | no        | HTML scrape       |
+| `mangapill`     | `MangapillProvider`     | mangapill.com     | MANGA        | sub           | no        | HTML scrape       |
 
 All extend `BaseProvider` and expose identical method signatures. `AnimeParadiseProvider` additionally implements the optional `fetchUnitTracks` for cheap subtitle/quality metadata.
 
@@ -54,6 +57,10 @@ These tests run without mocking. If a provider's upstream site changes its API o
 
 **Goyabu** is the only option for Brazilian Portuguese content.
 
+**MangaDex** is the gold standard for Manga — huge database, reliable JSON API, and clean images.
+
+**WeebCentral** and **MangaPill** are reliable fallbacks for Manga titles not found on MangaDex.
+
 ## Provider IDs
 
 The `id` property is used to identify providers in the HTTP server's `provider=` query parameter:
@@ -63,4 +70,7 @@ curl 'localhost:3000/search?q=Naruto&provider=allmanga'
 curl 'localhost:3000/search?q=Naruto&provider=animeparadise'
 curl 'localhost:3000/search?q=Naruto&provider=gogoanime'
 curl 'localhost:3000/search?q=Naruto&provider=goyabu'
+curl 'localhost:3000/search?q=Frieren&provider=mangadex'
+curl 'localhost:3000/search?q=Frieren&provider=weebcentral'
+curl 'localhost:3000/search?q=Frieren&provider=mangapill'
 ```

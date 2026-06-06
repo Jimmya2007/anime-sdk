@@ -3,12 +3,12 @@ title: Getting Started
 description: Install ani-sdk and resolve your first anime stream in minutes.
 ---
 
-ani-sdk is a TypeScript SDK that resolves direct video stream URLs from anime sites. It has three layers: HTTP transport, extractors (embed parsers), and providers (site-specific logic). Everything connects through `HttpClient`.
+ani-sdk is a TypeScript SDK that resolves direct video stream URLs from anime sites and image page URLs from manga sites. It has three layers: HTTP transport, extractors (embed parsers), and providers (site-specific logic). Everything connects through `HttpClient`.
 
 ## Requirements
 
 - **Node 20+** or **Bun** — native `fetch` and `crypto.subtle` are required
-- **ffmpeg** — only needed to run the live E2E test suite
+- **ffmpeg** — only needed to run the live E2E test suite for anime streams
 
 ## Install
 
@@ -31,28 +31,21 @@ HTML parsing is handled automatically. `linkedom` ships as a dependency and is r
 Every provider exposes the same three methods: `search` → `fetchContentUnits` → `resolveStream`.
 
 ```ts
-import { HttpClient, GogoanimeProvider } from 'ani-sdk';
+import { HttpClient, GogoanimeProvider, MangadexProvider } from 'ani-sdk';
 
 const client = new HttpClient({ timeoutMs: 10_000 });
-const provider = new GogoanimeProvider(client);
 
-// 1. Search
-const shows = await provider.search('Frieren');
-console.log(shows[0].id, shows[0].title);
+// Anime example
+const anime = new GogoanimeProvider(client);
+const shows = await anime.search('Frieren');
+const eps = await anime.fetchContentUnits(shows[0].id);
+const stream = await anime.resolveStream(eps[0].id, 'sub');
 
-// 2. Episodes — one call, language-agnostic.
-const eps = await provider.fetchContentUnits(shows[0].id);
-console.log(eps[0].id, eps[0].number, eps[0].availableLanguages); // e.g. ['sub', 'dub']
-
-// 3. Stream — pick the translation here.
-const result = await provider.resolveStream(eps[0].id, 'sub');
-
-if (result.type === 'video') {
-  for (const stream of result.streams) {
-    console.log(stream.sourceUrl, stream.quality, stream.isHLS);
-    for (const t of stream.subtitles ?? []) console.log(' sub:', t.language, t.url);
-  }
-}
+// Manga example
+const manga = new MangadexProvider(client);
+const books = await manga.search('Frieren');
+const chapters = await manga.fetchContentUnits(books[0].id);
+const pages = await manga.resolveStream(chapters[0].id);
 ```
 
 ## The resolved stream shape
@@ -66,7 +59,16 @@ type ResolvedMediaStream =
   | { type: 'live'; stream: IVideoPayload };
 ```
 
-All current providers return `type: 'video'`. Always check `result.type` before accessing the payload.
+Manga providers return `type: 'manga'`, while anime providers return `type: 'video'`. Always check `result.type` before accessing the payload.
+
+Each `IMangaPayload` carries:
+
+```ts
+interface IMangaPayload {
+  imageUrls: string[]; // high-resolution image URLs for each page
+  headers?: Record<string, string>; // Referer required by some sites
+}
+```
 
 Each `IVideoPayload` in the streams array has:
 

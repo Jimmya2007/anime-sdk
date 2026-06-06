@@ -187,6 +187,13 @@ declare module 'astro:content' {
   collection: "docs";
   data: InferEntrySchema<"docs">
 } & { render(): Render[".mdx"] };
+"docs/providers/animeparadise.mdx": {
+	id: "docs/providers/animeparadise.mdx";
+  slug: "docs/providers/animeparadise";
+  body: string;
+  collection: "docs";
+  data: InferEntrySchema<"docs">
+} & { render(): Render[".mdx"] };
 "docs/providers/gogoanime.mdx": {
 	id: "docs/providers/gogoanime.mdx";
   slug: "docs/providers/gogoanime";
@@ -204,6 +211,27 @@ declare module 'astro:content' {
 "docs/providers/index.mdx": {
 	id: "docs/providers/index.mdx";
   slug: "docs/providers";
+  body: string;
+  collection: "docs";
+  data: InferEntrySchema<"docs">
+} & { render(): Render[".mdx"] };
+"docs/providers/mangadex.mdx": {
+	id: "docs/providers/mangadex.mdx";
+  slug: "docs/providers/mangadex";
+  body: string;
+  collection: "docs";
+  data: InferEntrySchema<"docs">
+} & { render(): Render[".mdx"] };
+"docs/providers/mangapill.mdx": {
+	id: "docs/providers/mangapill.mdx";
+  slug: "docs/providers/mangapill";
+  body: string;
+  collection: "docs";
+  data: InferEntrySchema<"docs">
+} & { render(): Render[".mdx"] };
+"docs/providers/weebcentral.mdx": {
+	id: "docs/providers/weebcentral.mdx";
+  slug: "docs/providers/weebcentral";
   body: string;
   collection: "docs";
   data: InferEntrySchema<"docs">

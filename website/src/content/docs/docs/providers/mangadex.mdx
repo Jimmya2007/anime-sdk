@@ -1,0 +1,34 @@
+---
+title: MangaDex
+description: How to use the MangadexProvider in ani-sdk.
+---
+
+The `MangadexProvider` uses the official MangaDex JSON API. It is the gold standard for manga content, providing excellent metadata, cover art, and high-resolution images.
+
+## Usage
+
+```ts
+import { HttpClient, MangadexProvider } from 'ani-sdk';
+
+const http = new HttpClient();
+const provider = new MangadexProvider(http);
+
+const results = await provider.search('Frieren');
+const chapters = await provider.fetchContentUnits(results[0].id);
+const pages = await provider.resolveStream(chapters[0].id);
+
+if (pages.type === 'manga') {
+  console.log(pages.pages.imageUrls);
+}
+```
+
+## Characteristics
+
+| Feature       | Details                       |
+| ------------- | ----------------------------- |
+| **Catalog**   | Manga                         |
+| **Languages** | `sub` (English by default)    |
+| **Method**    | JSON API (`api.mangadex.org`) |
+| **Images**    | High-resolution direct URLs   |
+
+MangaDex is highly recommended for its stability and the quality of its API. It supports complex filtering and provides detailed information about series and chapters.

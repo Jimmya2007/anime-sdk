@@ -23,7 +23,7 @@ type ContentLanguage = 'sub' | 'dub' | 'raw';
 type MediaCatalogType = 'ANIME' | 'MOVIE' | 'TV' | 'MANGA' | 'LIVE_TV';
 ```
 
-All current providers return `'ANIME'`.
+Supported types include `'ANIME'` and `'MANGA'`.
 
 ### `IMediaSearchResult`
 
@@ -42,13 +42,13 @@ interface IMediaSearchResult {
 
 ### `IContentUnit`
 
-Returned by `provider.fetchContentUnits()`. Represents a single episode in a unified, language-agnostic list — the caller picks a translation at `resolveStream` time.
+Returned by `provider.fetchContentUnits()`. Represents a single episode or chapter in a unified, language-agnostic list — the caller picks a translation at `resolveStream` time.
 
 ```ts
 interface IContentUnit {
   id: string; // opaque, pass to resolveStream
   title: string;
-  number: number; // episode number (may be fractional, e.g. 1.5)
+  number: number; // episode/chapter number (may be fractional, e.g. 1.5)
   availableLanguages: ContentLanguage[]; // e.g. ['sub', 'dub']
   availableSubtitles?: ISubtitleAvailability[]; // optional, list-time metadata
   availableQualities?: IVideoPayload['quality'][]; // optional

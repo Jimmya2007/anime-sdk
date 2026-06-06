@@ -30,12 +30,12 @@ All routes are `GET` only. Errors return `{ error: string }` with the appropriat
 
 ### `GET /search`
 
-Search for shows.
+Search for shows or manga.
 
-| Param      | Required | Description                                       |
-| ---------- | -------- | ------------------------------------------------- |
-| `q`        | ✓        | Search query string                               |
-| `provider` | ✓        | Provider ID: `allmanga`, `gogoanime`, or `goyabu` |
+| Param      | Required | Description                                                                       |
+| ---------- | -------- | --------------------------------------------------------------------------------- |
+| `q`        | ✓        | Search query string                                                               |
+| `provider` | ✓        | Provider ID: `allmanga`, `gogoanime`, `mangadex`, `weebcentral`, or `mangapill` … |
 
 ```sh
 curl 'localhost:3000/search?q=Frieren&provider=allmanga'
@@ -58,7 +58,7 @@ Response: `IMediaSearchResult[]`
 
 ### `GET /content`
 
-List episodes for a show. One call returns the unified, language-agnostic list — each episode advertises its translations.
+List episodes for a show or chapters for a manga. One call returns the unified, language-agnostic list — each unit advertises its translations.
 
 | Param      | Required | Description               |
 | ---------- | -------- | ------------------------- |
@@ -84,7 +84,7 @@ Response: `IContentUnit[]`
 
 ### `GET /stream`
 
-Resolve a direct stream URL for an episode. Pick the translation here.
+Resolve a direct stream URL for an episode or image URLs for a manga chapter. Pick the translation here (if applicable).
 
 | Param      | Required | Description                |
 | ---------- | -------- | -------------------------- |
@@ -97,6 +97,8 @@ curl 'localhost:3000/stream?unitId=frieren-beyond-journeys-end%2F1&provider=allm
 ```
 
 Response: `ResolvedMediaStream`
+
+**Anime response:**
 
 ```json
 {
@@ -121,7 +123,19 @@ Response: `ResolvedMediaStream`
 }
 ```
 
-When `proxy: true`, both `sourceUrl` and every subtitle `url` are rewritten through `/proxy` automatically.
+**Manga response:**
+
+```json
+{
+  "type": "manga",
+  "pages": {
+    "imageUrls": ["https://...", "https://..."],
+    "headers": { "Referer": "https://..." }
+  }
+}
+```
+
+When `proxy: true`, both `sourceUrl`, anime subtitle `url`s, and manga `imageUrls` are rewritten through `/proxy` automatically.
 
 ### `GET /tracks`
 

@@ -1,21 +1,24 @@
 # ani-sdk
 
-A small TypeScript SDK for searching anime, listing episodes, and resolving
-direct stream URLs (with subtitle tracks). Four providers, a handful of
+A small TypeScript SDK for searching anime and manga, listing episodes/chapters, and resolving
+direct stream/page URLs (with subtitle tracks). Seven providers, a handful of
 reusable embed extractors, a pluggable HTTP transport, and an optional HTTP
 server with a stream/subtitle proxy and a bring-your-own cache hook.
 
 ## Providers
 
-| ID              | Site                | Languages   | Subtitles | What it scrapes                                                                                                                                 |
-| --------------- | ------------------- | ----------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `animeparadise` | `animeparadise.moe` | sub         | yes       | REST API at `api.animeparadise.moe`; episode carries a signed `streamLink` token; streamed as multi-quality HLS via `stream.animeparadise.moe`. |
-| `allmanga`      | `allmanga.to`       | sub, dub    | no        | AllAnime GraphQL → AES-CTR `tobeparsed` payload → Mp4Upload extractor (with `clock.json` fallback for the wixmp/sharepoint sources).            |
-| `gogoanime`     | `anineko.to`        | sub         | no        | Page scraping; vibeplayer embed → `master.m3u8` via `GenericHlsExtractor` (sequential, stops on first success).                                 |
-| `goyabu`        | `goyabu.io`         | pt-br (dub) | no        | Pulls the Blogger token from `playersData`, then calls Google's `batchexecute` endpoint to recover the `googlevideo.com` URL.                   |
+| ID              | Site                | Type  | Languages   | Subtitles | What it scrapes                                                                                                                                 |
+| --------------- | ------------------- | ----- | ----------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `animeparadise` | `animeparadise.moe` | Anime | sub         | yes       | REST API at `api.animeparadise.moe`; episode carries a signed `streamLink` token; streamed as multi-quality HLS via `stream.animeparadise.moe`. |
+| `allmanga`      | `allmanga.to`       | Anime | sub, dub    | no        | AllAnime GraphQL → AES-CTR `tobeparsed` payload → Mp4Upload extractor (with `clock.json` fallback for the wixmp/sharepoint sources).            |
+| `gogoanime`     | `anineko.to`        | Anime | sub         | no        | Page scraping; vibeplayer embed → `master.m3u8` via `GenericHlsExtractor` (sequential, stops on first success).                                 |
+| `goyabu`        | `goyabu.io`         | Anime | pt-br (dub) | no        | Pulls the Blogger token from `playersData`, then calls Google's `batchexecute` endpoint to recover the `googlevideo.com` URL.                   |
+| `mangadex`      | `mangadex.org`      | Manga | sub         | no        | Official JSON API at `api.mangadex.org` with cover art and high-quality page resolution.                                                        |
+| `weebcentral`   | `weebcentral.com`   | Manga | sub         | no        | Page scraping; extracts high-quality images with referer protection.                                                                            |
+| `mangapill`     | `mangapill.com`     | Manga | sub         | no        | Page scraping; efficient extraction of chapter page lists and direct image sources.                                                             |
 
-Every provider has a live E2E test that searches, picks an episode, resolves
-the stream, and captures a real video frame ~5s in with ffmpeg.
+Every provider has a live E2E test that searches, picks an episode/chapter, resolves
+the stream/pages, and captures a real video frame or verifies page links.
 
 ## Architecture
 
@@ -35,7 +38,10 @@ src/
 │   ├── AnimeParadiseProvider
 │   ├── AllmangaProvider
 │   ├── GogoanimeProvider
-│   └── GoyabuProvider
+│   ├── GoyabuProvider
+│   ├── MangadexProvider
+│   ├── WeebcentralProvider
+│   └── MangapillProvider
 ├── server/index.ts          startServer: HTTP API + /proxy + optional SdkCache
 ├── types/index.ts           IMediaSearchResult, IContentUnit, ISubtitleTrack,
 │                            IUnitTracks, ResolvedMediaStream, SdkCache, …
@@ -55,34 +61,31 @@ cheaply (no full stream resolution). Extractors are stateless and take a
 ## Usage
 
 ```ts
-import { HttpClient, AllmangaProvider } from 'ani-sdk';
+import { HttpClient, AllmangaProvider, MangadexProvider } from 'ani-sdk';
 
 const http = new HttpClient({ timeoutMs: 25_000 });
-const provider = new AllmangaProvider(http);
 
-const results = await provider.search('Frieren');
-const target = results.find((r) => r.title.toLowerCase().includes("beyond journey's end"))!;
+// Anime
+const anime = new AllmangaProvider(http);
+const shows = await anime.search('Frieren');
+const eps = await anime.fetchContentUnits(shows[0].id);
+const stream = await anime.resolveStream(eps[0].id, 'sub');
 
-// One call returns all episodes; each one advertises its languages.
-const units = await provider.fetchContentUnits(target.id);
-console.log(units[0].availableLanguages); // e.g. ['sub', 'dub']
+// Manga
+const manga = new MangadexProvider(http);
+const books = await manga.search('Frieren');
+const chapters = await manga.fetchContentUnits(books[0].id);
+const pages = await manga.resolveStream(chapters[0].id);
 
-// Pick the translation when you resolve.
-const stream = await provider.resolveStream(units[0].id, 'sub');
-
-if (stream.type === 'video') {
-  // streams are sorted best-first; iterate if the top one 4xx's.
-  for (const s of stream.streams) {
-    console.log(s.quality, s.isHLS ? 'HLS' : 'MP4', s.sourceUrl);
-    for (const t of s.subtitles ?? []) console.log(' sub:', t.language, t.label, t.url);
-  }
+if (pages.type === 'manga') {
+  console.log(pages.pages.imageUrls); // Array of high-res page URLs
 }
 ```
 
 ### HTTP server with proxy + cache
 
 ```ts
-import { HttpClient, startServer, AllmangaProvider, AnimeParadiseProvider } from 'ani-sdk';
+import { HttpClient, startServer, AllmangaProvider, MangadexProvider } from 'ani-sdk';
 
 const store = new Map(); // satisfies the SdkCache get/set contract
 const cache = {
@@ -91,7 +94,7 @@ const cache = {
 };
 
 startServer({
-  providers: [new AllmangaProvider(new HttpClient()), new AnimeParadiseProvider(new HttpClient())],
+  providers: [new AllmangaProvider(new HttpClient()), new MangadexProvider(new HttpClient())],
   port: 3000,
   proxy: true, // /search, /content, /stream, /tracks, /proxy
   cache, // memoize provider calls by namespaced key

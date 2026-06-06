@@ -5,10 +5,14 @@ import {
   GoyabuProvider,
   AllmangaProvider,
   AnimeParadiseProvider,
+  MangadexProvider,
+  WeebcentralProvider,
+  MangapillProvider,
+  DomRegistry,
 } from '../dist/index.js';
-import { HiAnimesProvider } from '../dist/providers/HiAnimesProvider.js';
 
 const http = new HttpClient({ timeoutMs: 30000 });
+const domParser = DomRegistry.getParser();
 
 // Trivial in-memory cache — a `Map` satisfies the SDK's get/set contract.
 // Swap this for Redis/SQLite/edge-KV in production; add TTL by inspecting the
@@ -34,7 +38,9 @@ startServer({
     new GoyabuProvider(http),
     new AllmangaProvider(http),
     new AnimeParadiseProvider(http),
-    new HiAnimesProvider(http, {}),
+    new MangadexProvider(http),
+    new WeebcentralProvider(http, domParser),
+    new MangapillProvider(http, domParser),
   ],
   port: Number(process.env.PORT ?? 3030),
   proxy: true,

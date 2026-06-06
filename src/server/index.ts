@@ -74,6 +74,23 @@ function rewriteHls(manifest: string, baseUrl: string, proxyBase: string, hParam
  * the proxy, with any required headers encoded in the `h` query param.
  */
 function proxyifyStream(stream: ResolvedMediaStream, proxyBase: string): ResolvedMediaStream {
+  if (stream.type === 'manga') {
+    const hParam =
+      stream.pages.headers && Object.keys(stream.pages.headers).length > 0
+        ? Buffer.from(JSON.stringify(stream.pages.headers)).toString('base64')
+        : undefined;
+    const suffix = hParam ? `&h=${encodeURIComponent(hParam)}` : '';
+    return {
+      type: 'manga',
+      pages: {
+        ...stream.pages,
+        imageUrls: stream.pages.imageUrls.map(
+          (url) => `${proxyBase}?url=${encodeURIComponent(url)}${suffix}`,
+        ),
+      },
+    };
+  }
+
   if (stream.type !== 'video') return stream;
   return {
     type: 'video',
@@ -172,11 +189,30 @@ export function startServer(options: ServerOptions): http.Server {
         const abortCtrl = new AbortController();
         req.on('close', () => abortCtrl.abort());
 
-        const upstream = await fetch(targetUrl, {
-          headers: upstreamHeaders,
-          redirect: 'follow',
-          signal: abortCtrl.signal,
-        });
+        let upstream: Response;
+        try {
+          upstream = await fetch(targetUrl, {
+            headers: upstreamHeaders,
+            redirect: 'follow',
+            signal: abortCtrl.signal,
+          });
+        } catch (fetchErr) {
+          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          console.error(`Proxy fetch failed for ${targetUrl}: ${msg}`);
+          return err(res, 502, `Upstream fetch failed: ${msg}`);
+        }
+
+        if (!upstream.ok) {
+          const text = await upstream.text().catch(() => 'No body');
+          console.error(
+            `Proxy upstream error ${upstream.status} for ${targetUrl}: ${text.slice(0, 200)}`,
+          );
+          return err(
+            res,
+            upstream.status === 404 ? 404 : 502,
+            `Upstream returned ${upstream.status}: ${text.slice(0, 100)}`,
+          );
+        }
 
         const ct = upstream.headers.get('content-type') ?? '';
 
@@ -208,7 +244,10 @@ export function startServer(options: ServerOptions): http.Server {
         let contentType = ct || 'application/octet-stream';
         if (ctOverride) {
           contentType = ctOverride;
-        } else if (ct.startsWith('image/') || (ct.startsWith('text/') && !ct.includes('html'))) {
+        } else if (
+          targetUrl.split('?')[0].toLowerCase().endsWith('.ts') &&
+          (ct.startsWith('image/') || (ct.startsWith('text/') && !ct.includes('html')))
+        ) {
           contentType = 'video/mp2t';
         }
         // mp4upload and similar CDNs return application/octet-stream for .mp4 files
@@ -306,6 +345,7 @@ export function startServer(options: ServerOptions): http.Server {
 
       return err(res, 404, 'Not found');
     } catch (e) {
+      console.log(e);
       return err(res, 500, e instanceof Error ? e.message : String(e));
     }
   });

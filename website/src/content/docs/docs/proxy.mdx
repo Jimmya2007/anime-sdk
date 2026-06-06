@@ -24,7 +24,7 @@ startServer({
 That's it. Three things happen automatically:
 
 1. A `/proxy` endpoint becomes active.
-2. Every `sourceUrl` in `/stream` responses is rewritten to go through `/proxy`, with the required headers encoded in the URL. Your frontend uses `sourceUrl` as-is — no header forwarding needed.
+2. Every `sourceUrl` in anime `/stream` responses and every URL in `imageUrls` for manga `/stream` responses is rewritten to go through `/proxy`, with the required headers encoded in the URL. Your frontend uses these URLs as-is — no header forwarding needed.
 3. Every subtitle `url` returned in `/stream` or `/tracks` responses is rewritten through `/proxy` too, with a `ct=text/vtt` hint so the proxy forces the right `Content-Type` even when the upstream CDN serves `application/octet-stream`.
 
 ## How stream URLs are rewritten

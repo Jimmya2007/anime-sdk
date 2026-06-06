@@ -44,13 +44,22 @@ export class BloggerExtractor extends BaseExtractor {
     const pageRes = await this.http.get(embedUrl, {
       headers: { 'User-Agent': UA, Accept: 'text/html' },
     });
-    if (pageRes.status !== 200) return [];
+    if (pageRes.status !== 200) {
+      throw new Error(`Failed to fetch Blogger embed page, status ${pageRes.status}`);
+    }
     const html = await pageRes.text();
 
     const sid = html.match(SID_RE)?.[1];
     const bh = html.match(BH_RE)?.[1];
     const at = html.match(AT_RE)?.[1] ?? '';
-    if (!sid || !bh) return [];
+
+    if (!sid || !bh) {
+      // Sometimes Blogger returns "Video not found" or "Removed"
+      if (html.includes('video-not-found') || html.includes('deleted')) {
+        throw new Error('Video has been deleted or not found on Blogger');
+      }
+      throw new Error(`Failed to extract SID (${!!sid}) or BH (${!!bh}) from Blogger embed`);
+    }
 
     // Step 2: call batchexecute.
     const innerJson = JSON.stringify([tokenMatch[1], '', 0]);
@@ -73,10 +82,16 @@ export class BloggerExtractor extends BaseExtractor {
         'User-Agent': UA,
       },
     });
-    if (batchRes.status !== 200) return [];
+    if (batchRes.status !== 200) {
+      throw new Error(`Blogger batchexecute failed with status ${batchRes.status}`);
+    }
     const body = await batchRes.text();
 
-    return this.parseBatchexecuteResponse(body);
+    const results = this.parseBatchexecuteResponse(body);
+    if (results.length === 0) {
+      throw new Error('Blogger batchexecute returned no stream URLs');
+    }
+    return results;
   }
 
   /**

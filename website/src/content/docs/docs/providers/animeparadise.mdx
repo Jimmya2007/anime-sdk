@@ -1,0 +1,43 @@
+---
+title: AnimeParadise
+description: How to use the AnimeParadiseProvider in ani-sdk.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The `AnimeParadiseProvider` connects to `animeparadise.moe`. It is a reliable provider with a clean REST API and support for external subtitle tracks.
+
+## Usage
+
+```ts
+import { HttpClient, AnimeParadiseProvider } from 'ani-sdk';
+
+const http = new HttpClient();
+const provider = new AnimeParadiseProvider(http);
+
+const results = await provider.search('Frieren');
+const units = await provider.fetchContentUnits(results[0].id);
+
+// AnimeParadise supports fetchUnitTracks for cheap metadata
+if (provider.fetchUnitTracks) {
+  const tracks = await provider.fetchUnitTracks(units[0].id);
+  console.log(tracks.subtitles);
+}
+
+const stream = await provider.resolveStream(units[0].id);
+```
+
+## Characteristics
+
+| Feature       | Details                       |
+| ------------- | ----------------------------- |
+| **Catalog**   | Anime                         |
+| **Languages** | `sub`                         |
+| **Subtitles** | yes (VTT)                     |
+| **Method**    | REST API                      |
+| **HLS**       | Multi-quality master playlist |
+
+<Aside type="note">
+  AnimeParadise uses signed tokens for stream links. These links are tied to the requester's IP and
+  expire after a short period.
+</Aside>

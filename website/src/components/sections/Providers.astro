@@ -36,6 +36,33 @@ const providers = [
     tags: ['Blogger', 'googlevideo'],
     description: `Reads a Blogger token from player data, calls Google <span class="fn">batchexecute</span>, and decodes the response to a <span class="str">googlevideo.com</span> stream URL.`,
   },
+  {
+    id: 'mangadex',
+    domain: 'mangadex.org',
+    languages: ['sub'],
+    method: 'JSON API',
+    methodStyle: 'background:#fbbf24;color:#451a03',
+    tags: ['covers', 'official'],
+    description: `Official <span class="fn">JSON</span> API at api.mangadex.org. High-quality manga metadata, cover art, and high-resolution page resolution for all chapters.`,
+  },
+  {
+    id: 'weebcentral',
+    domain: 'weebcentral.com',
+    languages: ['sub'],
+    method: 'HTML scrape',
+    methodStyle: 'background:#3b82f6;color:#eff6ff',
+    tags: ['DOM', 'Referer'],
+    description: `Scrapes <span class="str">weebcentral.com</span>. Extracts high-quality chapter image pages with <span class="typ">Referer</span> protection and automatic proxy routing.`,
+  },
+  {
+    id: 'mangapill',
+    domain: 'mangapill.com',
+    languages: ['sub'],
+    method: 'HTML scrape',
+    methodStyle: 'background:#ef4444;color:#fef2f2',
+    tags: ['DOM'],
+    description: `Scrapes <span class="str">mangapill.com</span>. Reliable extraction of chapter page lists and direct image sources for titles not found elsewhere.`,
+  },
 ];
 ---
 

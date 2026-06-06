@@ -1,0 +1,31 @@
+---
+title: WeebCentral
+description: How to use the WeebcentralProvider in ani-sdk.
+---
+
+The `WeebcentralProvider` scrapes `weebcentral.com`. It provides a wide range of manga titles and high-quality image pages.
+
+## Usage
+
+```ts
+import { HttpClient, WeebcentralProvider, DomRegistry } from 'ani-sdk';
+
+const http = new HttpClient();
+const domParser = DomRegistry.getParser();
+const provider = new WeebcentralProvider(http, domParser);
+
+const results = await provider.search('Frieren');
+const chapters = await provider.fetchContentUnits(results[0].id);
+const pages = await provider.resolveStream(chapters[0].id);
+```
+
+## Characteristics
+
+| Feature        | Details          |
+| -------------- | ---------------- |
+| **Catalog**    | Manga            |
+| **Languages**  | `sub`            |
+| **Method**     | HTML scraping    |
+| **Protection** | Referer required |
+
+WeebCentral is a reliable fallback when MangaDex is missing a specific title or translation. It requires proper referer headers, which are handled automatically by the provider and the SDK's built-in proxy.

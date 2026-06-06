@@ -9,6 +9,10 @@ export default function Episodes() {
   const provider = sp.get('provider') || '';
   const mediaId = sp.get('mid') || '';
   const title = sp.get('title') || mediaId;
+  const type = sp.get('type') || 'ANIME';
+
+  const isManga = type === 'MANGA';
+  const unitLabel = isManga ? 'Chapter' : 'EP';
 
   const { data, isFetching, isError, error } = useQuery<api.Episode[]>({
     queryKey: ['content', provider, mediaId],
@@ -19,14 +23,18 @@ export default function Episodes() {
   const goStream = (ep: api.Episode) =>
     navigate(
       `/stream?provider=${provider}&uid=${encodeURIComponent(ep.id)}` +
-        `&title=${encodeURIComponent(title)}&ep=${encodeURIComponent(`EP.${String(ep.number).padStart(3, '0')}`)}&mid=${encodeURIComponent(mediaId)}`,
+        `&title=${encodeURIComponent(title)}&ep=${encodeURIComponent(`${unitLabel}.${String(ep.number).padStart(3, '0')}`)}&mid=${encodeURIComponent(mediaId)}&type=${type}`,
     );
 
   return (
     <div className="px-4">
       <div className="mt-5 mb-4">
         <h1 className="text-base tracking-wide text-white">{title}</h1>
-        {data && <p className="mt-0.5 text-xs text-[#444]">{data.length} episodes</p>}
+        {data && (
+          <p className="mt-0.5 text-xs text-[#444]">
+            {data.length} {isManga ? 'chapters' : 'episodes'}
+          </p>
+        )}
       </div>
 
       {isFetching && <p className="px-1 text-xs text-[#333]">fetching...</p>}
@@ -40,7 +48,9 @@ export default function Episodes() {
               onClick={() => goStream(ep)}
               className="group flex w-full items-center justify-between gap-4 border-b border-[#141414] px-2 py-2.5 text-left transition-colors hover:bg-[#111]"
             >
-              <span className="shrink-0 text-[#555]">EP.{String(ep.number).padStart(3, '0')}</span>
+              <span className="shrink-0 text-[#555]">
+                {unitLabel}.{String(ep.number).padStart(3, '0')}
+              </span>
               <span className="flex-1 truncate text-[#aaa] transition-colors group-hover:text-white">
                 {ep.title}
               </span>

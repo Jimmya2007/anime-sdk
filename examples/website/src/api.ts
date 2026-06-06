@@ -47,7 +47,13 @@ export interface VideoStream {
   subtitles?: SubtitleTrack[];
 }
 
+export interface MangaStream {
+  imageUrls: string[];
+  headers?: Record<string, string>;
+}
+
 export interface ResolvedStream {
   type: 'video' | 'manga' | 'live';
   streams?: VideoStream[];
+  pages?: MangaStream;
 }

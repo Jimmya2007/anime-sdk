@@ -18,7 +18,7 @@ npm run build      # tsc → dist/
 
 ## What's welcome
 
-**New providers** — the highest-value contribution. A good target is a public site (no login required) that covers a language or catalogue the three existing providers don't. Cloudflare-protected sites are fine — accept `FlareSolverrClient` as an optional constructor argument.
+**New providers** — the highest-value contribution. A good target is a public site (no login required) that covers a language, catalogue, or content type (Anime or Manga) the seven existing providers don't. Cloudflare-protected sites are fine — accept `FlareSolverrClient` as an optional constructor argument.
 
 **Bug fixes for existing providers** — site layouts change. A targeted fix with a passing E2E test is always welcome. Open an issue first if the change is large.
 

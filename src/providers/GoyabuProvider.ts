@@ -211,7 +211,11 @@ export class GoyabuProvider extends BaseProvider {
     for (const url of bloggerUrls) {
       try {
         const extracted = await this.bloggerExtractor.extract(url);
-        videoSources.push(...extracted);
+        if (extracted.length === 0) {
+          errors.push(`${url.slice(0, 80)}: Extractor returned 0 results without error`);
+        } else {
+          videoSources.push(...extracted);
+        }
       } catch (e) {
         errors.push(`${url.slice(0, 80)}: ${(e as Error).message}`);
       }

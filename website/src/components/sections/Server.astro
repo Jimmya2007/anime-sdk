@@ -12,14 +12,14 @@ const serverStartCode = `<code><span class="kw">import</span> <span class="pun">
 
 <span class="cm">// → http://localhost:3000</span></code>`;
 
-const serverCurlCode = `<code><span class="cm"># search</span>
-curl <span class="str">'localhost:3000/search?q=One+Piece&amp;provider=allmanga'</span>
+const serverCurlCode = `<code><span class="cm"># search shows or manga</span>
+curl <span class="str">'localhost:3000/search?q=Frieren&amp;provider=mangadex'</span>
 
-<span class="cm"># episodes — one call, all languages</span>
-curl <span class="str">'localhost:3000/content?mediaId=...&amp;provider=allmanga'</span>
+<span class="cm"># content — episodes or chapters</span>
+curl <span class="str">'localhost:3000/content?mediaId=...&amp;provider=mangadex'</span>
 
-<span class="cm"># stream URL + subtitles, pick the lang here</span>
-curl <span class="str">'localhost:3000/stream?unitId=...&amp;language=dub'</span></code>`;
+<span class="cm"># resolve — streams or image pages</span>
+curl <span class="str">'localhost:3000/stream?unitId=...&amp;provider=mangadex'</span></code>`;
 
 const serverAuthCode = `<code><span class="fn">startServer</span><span class="pun">({</span>
   providers<span class="pun">:</span> <span class="pun">[</span><span class="kw">new</span> <span class="fn">AllmangaProvider</span><span class="pun">(</span><span class="kw">new</span> <span class="fn">HttpClient</span><span class="pun">())],</span>

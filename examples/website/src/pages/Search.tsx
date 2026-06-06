@@ -3,7 +3,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import * as api from '../api';
 
-const PROVIDERS = ['gogoanime', 'goyabu', 'allmanga', 'animeparadise'];
+const PROVIDERS = [
+  'animeparadise',
+  'allmanga',
+  'gogoanime',
+  'goyabu',
+  'mangadex',
+  'weebcentral',
+  'mangapill',
+];
 
 export default function Search() {
   const navigate = useNavigate();
@@ -39,7 +47,7 @@ export default function Search() {
 
   const goEpisodes = (result: api.SearchResult) =>
     navigate(
-      `/episodes?provider=${provider}&mid=${encodeURIComponent(result.id)}&title=${encodeURIComponent(result.title)}`,
+      `/episodes?provider=${provider}&mid=${encodeURIComponent(result.id)}&title=${encodeURIComponent(result.title)}&type=${result.catalogType}`,
     );
 
   return (

@@ -5,12 +5,12 @@ const gogoanimeCode = `<code><span class="kw">import</span> <span class="pun">{<
   <span class="kw">new</span> <span class="fn">HttpClient</span><span class="pun">({</span> timeoutMs<span class="pun">:</span> <span class="num">10_000</span> <span class="pun">})</span>
 <span class="pun">);</span>
 
-<span class="kw">const</span> shows  <span class="pun">=</span> <span class="kw">await</span> provider<span class="pun">.</span><span class="fn">search</span><span class="pun">(</span><span class="str">'One Piece'</span><span class="pun">);</span>
-<span class="kw">const</span> eps    <span class="pun">=</span> <span class="kw">await</span> provider<span class="pun">.</span><span class="fn">fetchContentUnits</span><span class="pun">(</span>shows<span class="pun">[</span><span class="num">0</span><span class="pun">].</span>id<span class="pun">);</span>
-<span class="kw">const</span> stream <span class="pun">=</span> <span class="kw">await</span> provider<span class="pun">.</span><span class="fn">resolveStream</span><span class="pun">(</span>eps<span class="pun">[</span><span class="num">0</span><span class="pun">].</span>id<span class="pun">);</span>
+<span class="kw">const</span> shows   <span class="pun">=</span> <span class="kw">await</span> provider<span class="pun">.</span><span class="fn">search</span><span class="pun">(</span><span class="str">'Frieren'</span><span class="pun">);</span>
+<span class="kw">const</span> units   <span class="pun">=</span> <span class="kw">await</span> provider<span class="pun">.</span><span class="fn">fetchContentUnits</span><span class="pun">(</span>shows<span class="pun">[</span><span class="num">0</span><span class="pun">].</span>id<span class="pun">);</span>
+<span class="kw">const</span> result  <span class="pun">=</span> <span class="kw">await</span> provider<span class="pun">.</span><span class="fn">resolveStream</span><span class="pun">(</span>units<span class="pun">[</span><span class="num">0</span><span class="pun">].</span>id<span class="pun">);</span>
 
-<span class="kw">for</span> <span class="pun">(</span><span class="kw">const</span> s <span class="kw">of</span> stream<span class="pun">.</span>streams<span class="pun">)</span> console<span class="pun">.</span><span class="fn">log</span><span class="pun">(</span>s<span class="pun">.</span>sourceUrl<span class="pun">);</span>
-<span class="cm">// → https://vidcdn.in/hls/one-piece-episode-1/master.m3u8</span></code>`;
+<span class="kw">if</span> <span class="pun">(</span>result<span class="pun">.</span>type <span class="pun">===</span> <span class="str">'video'</span><span class="pun">)</span> console<span class="pun">.</span><span class="fn">log</span><span class="pun">(</span>result<span class="pun">.</span>streams<span class="pun">[</span><span class="num">0</span><span class="pun">].</span>sourceUrl<span class="pun">);</span>
+<span class="kw">if</span> <span class="pun">(</span>result<span class="pun">.</span>type <span class="pun">===</span> <span class="str">'manga'</span><span class="pun">)</span> console<span class="pun">.</span><span class="fn">log</span><span class="pun">(</span>result<span class="pun">.</span>pages<span class="pun">.</span>imageUrls<span class="pun">);</span></code>`;
 ---
 
 <section id="demo">

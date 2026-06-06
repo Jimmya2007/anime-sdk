@@ -22,6 +22,9 @@ export * from './providers/GogoanimeProvider.js';
 export * from './providers/GoyabuProvider.js';
 export * from './providers/AllmangaProvider.js';
 export * from './providers/AnimeParadiseProvider.js';
+export * from './providers/MangadexProvider.js';
+export * from './providers/WeebcentralProvider.js';
+export * from './providers/MangapillProvider.js';
 
 // Utilities
 export * from './utils/crypto.js';
