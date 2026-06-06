@@ -57,8 +57,8 @@ export class AllmangaProvider extends BaseProvider {
       this.apiBase = options.baseUrl;
     }
     this.defaultLanguage = options.defaultLanguage ?? 'sub';
-    this.mp4UploadExtractor = new Mp4UploadExtractor(http);
-    this.genericExtractor = new GenericHlsExtractor(http);
+    this.mp4UploadExtractor = new Mp4UploadExtractor(this.http);
+    this.genericExtractor = new GenericHlsExtractor(this.http);
   }
 
   // ─── Search ────────────────────────────────────────────────────────────────

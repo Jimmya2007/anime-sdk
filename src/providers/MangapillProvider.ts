@@ -1,5 +1,5 @@
 import { HttpClient } from '../transport/http.js';
-import { IDomParser } from '../types/index.js';
+import { DomRegistry } from '../transport/dom.js';
 import {
   IMediaSearchResult,
   IContentUnit,
@@ -15,10 +15,7 @@ export class MangapillProvider extends BaseProvider {
 
   private readonly baseUrl = 'https://mangapill.com';
 
-  constructor(
-    http: HttpClient,
-    private readonly domParser: IDomParser,
-  ) {
+  constructor(http: HttpClient) {
     super(http);
   }
 
@@ -36,7 +33,7 @@ export class MangapillProvider extends BaseProvider {
       },
     });
     const html = await res.text();
-    const doc = this.domParser.parse(`<div>${html}</div>`);
+    const doc = DomRegistry.parse(`<div>${html}</div>`);
 
     const results: IMediaSearchResult[] = [];
 
@@ -79,7 +76,7 @@ export class MangapillProvider extends BaseProvider {
       },
     });
     const html = await res.text();
-    const doc = this.domParser.parse(`<div>${html}</div>`);
+    const doc = DomRegistry.parse(`<div>${html}</div>`);
 
     const units: IContentUnit[] = [];
     const items = doc.querySelectorAll('a.border');
@@ -119,7 +116,7 @@ export class MangapillProvider extends BaseProvider {
       },
     });
     const html = await res.text();
-    const doc = this.domParser.parse(`<div>${html}</div>`);
+    const doc = DomRegistry.parse(`<div>${html}</div>`);
 
     const imageUrls: string[] = [];
     const images = doc.querySelectorAll('.js-page');

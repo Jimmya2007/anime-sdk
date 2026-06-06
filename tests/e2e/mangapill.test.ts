@@ -12,8 +12,7 @@ describe('Mangapill E2E', () => {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
     });
-    const domParser = DomRegistry.getParser();
-    const provider = new MangapillProvider(http, domParser);
+    const provider = new MangapillProvider(http);
 
     const query = 'Frieren';
     const searchResults = await provider.search(query);

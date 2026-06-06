@@ -93,6 +93,10 @@ export class AnimeParadiseProvider extends BaseProvider {
     // AnimeParadise serves a single auto-ladder HLS manifest per episode — we
     // don't know the rendition list without fetching the master, so 'auto' is
     // the only signal we can give up-front.
-    return { subtitles, qualities: ['auto'] };
+    return {
+      subtitles,
+      qualities: ['auto'],
+      headers: { Referer: 'https://animeparadise.moe/' },
+    };
   }
 }

@@ -102,7 +102,7 @@ function proxyifyStream(stream: ResolvedMediaStream, proxyBase: string): Resolve
       const suffix = hParam ? `&h=${encodeURIComponent(hParam)}` : '';
       const subtitles = s.subtitles?.map((t) => ({
         ...t,
-        url: proxifySubtitleUrl(proxyBase, t),
+        url: proxifySubtitleUrl(proxyBase, t, { headers: s.headers }),
       }));
       return {
         ...s,
@@ -117,7 +117,10 @@ function proxyifyStream(stream: ResolvedMediaStream, proxyBase: string): Resolve
 function proxyifyTracks(tracks: IUnitTracks, proxyBase: string): IUnitTracks {
   return {
     ...tracks,
-    subtitles: tracks.subtitles.map((t) => ({ ...t, url: proxifySubtitleUrl(proxyBase, t) })),
+    subtitles: tracks.subtitles.map((t) => ({
+      ...t,
+      url: proxifySubtitleUrl(proxyBase, t, { headers: tracks.headers }),
+    })),
   };
 }
 

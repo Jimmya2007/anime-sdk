@@ -61,6 +61,7 @@ export interface ISubtitleTrack extends ISubtitleAvailability {
 export interface IUnitTracks {
   subtitles: ISubtitleTrack[];
   qualities: IVideoPayload['quality'][];
+  headers?: Record<string, string>;
 }
 
 export interface IVideoPayload {
