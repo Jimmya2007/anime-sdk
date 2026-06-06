@@ -73,12 +73,12 @@ The language parameter to `fetchContentUnits` and `resolveStream` is accepted bu
 
 1. **Search** — GET `{baseUrl}/browser?keyword={query}`. Parses `article.nv-anime-card` elements: the `<a>` inside `h3.nv-anime-title` provides the ID and title; `<img>` provides the thumbnail.
 2. **Episodes** — GET the watch page. Parses `article.nv-info-episode-item` elements. Each `<a.nv-info-episode-main>` has an `href` (the content unit ID); the episode number is extracted from the `ep-N` segment of the path.
-3. **Stream resolution** — GET the episode page. Parses `button.nv-server-btn` elements, each of which has a `data-video` attribute containing a stream URL. Quality is inferred from the button label text. URLs starting with `//` or `/` are made absolute.
+3. **Stream resolution** — GET the episode page. Parses `button.nv-server-btn` elements to collect embed URLs from `data-video` attributes. Each URL is passed sequentially to `GenericHlsExtractor`, which fetches the embed page and scans it for a `.m3u8` URL. Returns on the first successful extraction.
 
 A User-Agent header (`Chrome/120`) is set automatically on the `HttpClient` if one isn't already configured — anineko.to rejects requests without one.
 
 ## Notes
 
 - Does not require `FlareSolverrClient`.
-- `resolveStream` returns all available server streams as separate `IVideoPayload` entries. The first one is not necessarily the highest quality — iterate and try in order if playback fails.
+- `resolveStream` runs embed URLs through `GenericHlsExtractor` sequentially and returns on the first successful extraction, so resolution is fast (~0.5s) even when multiple server buttons are present. Falls back to raw embed URLs if nothing resolves.
 - If anineko.to changes domain, pass the new URL via `options.baseUrl`.

@@ -9,7 +9,7 @@ and a pluggable HTTP transport.
 | ID          | Site          | Languages   | What it scrapes                                                                                                                      |
 | ----------- | ------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `allmanga`  | `allmanga.to` | sub, dub    | AllAnime GraphQL → AES-CTR `tobeparsed` payload → Mp4Upload extractor (with `clock.json` fallback for the wixmp/sharepoint sources). |
-| `gogoanime` | `anineko.to`  | sub         | Page scraping; the screenshot helper handles the vibeplayer embed → `master.m3u8`.                                                   |
+| `gogoanime` | `anineko.to`  | sub         | Page scraping; vibeplayer embed → `master.m3u8` via `GenericHlsExtractor` (sequential, stops on first success).                      |
 | `goyabu`    | `goyabu.io`   | pt-br (dub) | Pulls the Blogger token from `playersData`, then calls Google's `batchexecute` endpoint to recover the `googlevideo.com` URL.        |
 
 Every provider has a live E2E test that searches, picks an episode, resolves

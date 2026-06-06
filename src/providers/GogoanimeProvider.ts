@@ -1,6 +1,7 @@
 import { BaseProvider } from './BaseProvider.js';
 import { HttpClient } from '../transport/http.js';
 import { DomRegistry } from '../transport/dom.js';
+import { GenericHlsExtractor } from '../extractors/GenericHlsExtractor.js';
 import {
   IMediaSearchResult,
   IContentUnit,
@@ -196,9 +197,24 @@ export class GogoanimeProvider extends BaseProvider {
       throw new Error(`No server video streams found on AniNeko episode page: ${unitId}`);
     }
 
+    // Resolve embed URLs to direct streams — try sequentially, stop on first success
+    const extractor = new GenericHlsExtractor(this.http);
+    let resolved: IVideoPayload[] = [];
+    for (const embed of streams) {
+      try {
+        const extracted = await extractor.extract(embed.sourceUrl);
+        if (extracted.length > 0) {
+          resolved = extracted;
+          break;
+        }
+      } catch {
+        /* try next */
+      }
+    }
+
     return {
       type: 'video',
-      streams,
+      streams: resolved.length > 0 ? resolved : streams,
     };
   }
 }
