@@ -1,0 +1,49 @@
+---
+title: MegaPlay
+description: How to use the MegaPlayProvider in ani-sdk.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The `MegaPlayProvider` is a universal resolver that connects to `megaplay.buzz`. Unlike other providers that scrape specific anime sites, MegaPlay uses **AniList GraphQL** for search and resolves streams using official AniList IDs.
+
+## Usage
+
+```ts
+import { HttpClient, MegaPlayProvider } from 'ani-sdk';
+
+const http = new HttpClient();
+const provider = new MegaPlayProvider(http);
+
+// Searches using AniList GraphQL
+const results = await provider.search('Naruto');
+const units = await provider.fetchContentUnits(results[0].id);
+
+// Resolves using MegaPlay's direct AniList mapping
+const stream = await provider.resolveStream(units[0].id, 'sub');
+```
+
+## Characteristics
+
+| Feature       | Details                        |
+| ------------- | ------------------------------ |
+| **Catalog**   | Anime (AniList)                |
+| **Languages** | `sub`, `dub`                   |
+| **Subtitles** | yes (Integrated in HLS)        |
+| **Method**    | AniList GraphQL + ID Mapping   |
+| **HLS**       | Single quality with VTT tracks |
+
+<Aside type="caution">
+  MegaPlay does not have a 1:1 mapping for every show on AniList. If a stream fails to resolve, it
+  likely means the show hasn't been indexed by MegaPlay yet.
+</Aside>
+
+## Configuration
+
+You can override the base URL if the host moves to a new domain:
+
+```ts
+const provider = new MegaPlayProvider(http, {
+  baseUrl: 'https://megaplay.buzz',
+});
+```

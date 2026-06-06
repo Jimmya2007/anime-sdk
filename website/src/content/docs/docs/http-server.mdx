@@ -32,10 +32,10 @@ All routes are `GET` only. Errors return `{ error: string }` with the appropriat
 
 Search for shows or manga.
 
-| Param      | Required | Description                                                                       |
-| ---------- | -------- | --------------------------------------------------------------------------------- |
-| `q`        | ✓        | Search query string                                                               |
-| `provider` | ✓        | Provider ID: `allmanga`, `gogoanime`, `mangadex`, `weebcentral`, or `mangapill` … |
+| Param      | Required | Description                                                                                  |
+| ---------- | -------- | -------------------------------------------------------------------------------------------- |
+| `q`        | ✓        | Search query string                                                                          |
+| `provider` | ✓        | Provider ID: `allmanga`, `gogoanime`, `anikoto`, `mangadex`, `weebcentral`, or `mangapill` … |
 
 ```sh
 curl 'localhost:3000/search?q=Frieren&provider=allmanga'

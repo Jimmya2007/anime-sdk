@@ -1,0 +1,49 @@
+---
+title: Anikoto
+description: How to use the AnikotoProvider in ani-sdk.
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+The `AnikotoProvider` connects to `anikototv.to` (anikoto.cz). It is an excellent provider for both **subbed** and **dubbed** content, offering high-quality HLS streams with integrated subtitle tracks.
+
+## Usage
+
+```ts
+import { HttpClient, AnikotoProvider } from 'ani-sdk';
+
+const http = new HttpClient();
+const provider = new AnikotoProvider(http);
+
+const results = await provider.search('Naruto');
+const units = await provider.fetchContentUnits(results[0].id);
+
+// Resolve sub or dub streams
+const subStream = await provider.resolveStream(units[0].id, 'sub');
+const dubStream = await provider.resolveStream(units[0].id, 'dub');
+```
+
+## Characteristics
+
+| Feature       | Details                        |
+| ------------- | ------------------------------ |
+| **Catalog**   | Anime                          |
+| **Languages** | `sub`, `dub`                   |
+| **Subtitles** | yes (Integrated in HLS)        |
+| **Method**    | JSON API + Embed Scrape        |
+| **HLS**       | Single quality with VTT tracks |
+
+<Aside type="tip">
+  Anikoto is one of the most reliable providers in the SDK for dubbed content. It uses a custom
+  extraction logic for the `megaplay.buzz` embed system.
+</Aside>
+
+## Configuration
+
+You can override the base URL if the site moves to a new domain:
+
+```ts
+const provider = new AnikotoProvider(http, {
+  baseUrl: 'https://anikoto.cz', // or another mirror
+});
+```

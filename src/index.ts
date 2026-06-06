@@ -18,9 +18,11 @@ export * from './extractors/BloggerExtractor.js';
 export * from './providers/BaseProvider.js';
 
 // Providers
+export * from './providers/AllmangaProvider.js';
 export * from './providers/GogoanimeProvider.js';
 export * from './providers/GoyabuProvider.js';
-export * from './providers/AllmangaProvider.js';
+export * from './providers/AnikotoProvider.js';
+export * from './providers/MegaPlayProvider.js';
 export * from './providers/AnimeParadiseProvider.js';
 export * from './providers/MangadexProvider.js';
 export * from './providers/WeebcentralProvider.js';

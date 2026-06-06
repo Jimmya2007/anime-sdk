@@ -137,7 +137,7 @@ export class HttpClient {
           const cookieArg = ` -c ${JSON.stringify(this.cookieFile)} -b ${JSON.stringify(this.cookieFile)}`;
 
           // Use -i to include headers, -L to follow redirects, -s for silent, --max-time to prevent hangs
-          const curlCmd = `curl -sL --max-time 10${methodArg}${headerArgs}${bodyArg}${cookieArg} -i ${JSON.stringify(targetUrl)}`;
+          const curlCmd = `curl -sL --max-time ${Math.ceil(this.timeoutMs / 1000)}${methodArg}${headerArgs}${bodyArg}${cookieArg} -i ${JSON.stringify(targetUrl)}`;
           const output = execSync(curlCmd, { maxBuffer: 10 * 1024 * 1024 });
           const outputStr = output.toString('binary');
 

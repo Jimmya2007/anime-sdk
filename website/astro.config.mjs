@@ -26,6 +26,8 @@ export default defineConfig({
             { label: 'Overview', link: '/docs/providers/' },
             { label: 'AllManga', link: '/docs/providers/allmanga/' },
             { label: 'Gogoanime', link: '/docs/providers/gogoanime/' },
+            { label: 'Anikoto', link: '/docs/providers/anikoto/' },
+            { label: 'MegaPlay', link: '/docs/providers/megaplay/' },
             { label: 'Goyabu', link: '/docs/providers/goyabu/' },
           ],
         },

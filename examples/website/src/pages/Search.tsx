@@ -9,6 +9,8 @@ const PROVIDERS = [
   'gogoanime',
   'goyabu',
   'mangadex',
+  'anikoto',
+  'megaplay',
   'weebcentral',
   'mangapill',
 ];
