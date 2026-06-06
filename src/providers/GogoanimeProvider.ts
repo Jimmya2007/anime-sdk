@@ -82,10 +82,7 @@ export class GogoanimeProvider extends BaseProvider {
   /**
    * Fetch all content units (episodes) for a given AniNeko anime ID (e.g., "/watch/slug").
    */
-  public async fetchContentUnits(
-    mediaId: string,
-    _language?: import('../types/index.js').ContentLanguage,
-  ): Promise<IContentUnit[]> {
+  public async fetchContentUnits(mediaId: string): Promise<IContentUnit[]> {
     let watchUrlPath = mediaId;
     // Normalize path to watch page if it is an episode URL
     if (mediaId.includes('/watch/')) {
@@ -134,7 +131,7 @@ export class GogoanimeProvider extends BaseProvider {
         id,
         title: displayTitle,
         number,
-        language: 'sub',
+        availableLanguages: ['sub'],
       });
     }
 

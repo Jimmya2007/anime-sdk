@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import * as api from '../api';
 
-const PROVIDERS = ['gogoanime', 'goyabu', 'allmanga'];
+const PROVIDERS = ['gogoanime', 'goyabu', 'allmanga', 'animeparadise'];
 
 export default function Search() {
   const navigate = useNavigate();
@@ -11,7 +11,6 @@ export default function Search() {
 
   const provider = sp.get('provider') || PROVIDERS[0];
   const initialQ = sp.get('q') || '';
-  const lang = sp.get('lang') || 'sub';
 
   const [input, setInput] = useState(initialQ);
 
@@ -40,7 +39,7 @@ export default function Search() {
 
   const goEpisodes = (result: api.SearchResult) =>
     navigate(
-      `/episodes?provider=${provider}&mid=${encodeURIComponent(result.id)}&title=${encodeURIComponent(result.title)}&lang=${lang}`,
+      `/episodes?provider=${provider}&mid=${encodeURIComponent(result.id)}&title=${encodeURIComponent(result.title)}`,
     );
 
   return (
@@ -84,12 +83,24 @@ export default function Search() {
             <button
               key={r.id}
               onClick={() => goEpisodes(r)}
-              className="group flex w-full items-center justify-between border-b border-[#141414] px-2 py-2.5 text-left transition-colors hover:bg-[#111]"
+              className="group flex w-full items-center justify-between gap-4 border-b border-[#141414] px-2 py-2.5 text-left transition-colors hover:bg-[#111]"
             >
-              <span className="text-[#bbb] transition-colors group-hover:text-white">
+              <span className="flex-1 truncate text-[#bbb] transition-colors group-hover:text-white">
                 {r.title}
               </span>
-              <span className="text-xs text-[#333]">{r.catalogType}</span>
+              {r.availableLanguages && r.availableLanguages.length > 0 && (
+                <span className="flex shrink-0 gap-1">
+                  {r.availableLanguages.map((l) => (
+                    <span
+                      key={l}
+                      className="border border-[#222] px-1.5 py-0.5 text-[10px] tracking-widest text-[#555]"
+                    >
+                      {l}
+                    </span>
+                  ))}
+                </span>
+              )}
+              <span className="shrink-0 text-xs text-[#333]">{r.catalogType}</span>
             </button>
           ))}
         </div>

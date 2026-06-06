@@ -112,11 +112,7 @@ export class AllmangaProvider extends BaseProvider {
 
   // ─── Episodes ──────────────────────────────────────────────────────────────
 
-  public async fetchContentUnits(
-    mediaId: string,
-    language?: ContentLanguage,
-  ): Promise<IContentUnit[]> {
-    const lang = language ?? this.defaultLanguage;
+  public async fetchContentUnits(mediaId: string): Promise<IContentUnit[]> {
     const gql = `query ($showId: String!) { show( _id: $showId ) { _id availableEpisodesDetail }}`;
 
     const res = await this.http.post(
@@ -130,18 +126,28 @@ export class AllmangaProvider extends BaseProvider {
 
     const json = (await res.json()) as any;
     const detail = json?.data?.show?.availableEpisodesDetail ?? {};
-    const episodes: string[] = detail[lang]?.length > 0 ? detail[lang] : (detail.sub ?? []);
-    const resolvedLang: ContentLanguage = detail[lang]?.length > 0 ? lang : 'sub';
+
+    // Merge sub/dub/raw episode lists into one canonical list keyed by episode
+    // number; each unit advertises which translations include it.
+    const merged = new Map<string, { num: number; langs: ContentLanguage[] }>();
+    for (const lang of ['sub', 'dub', 'raw'] as const) {
+      const list: string[] = Array.isArray(detail[lang]) ? detail[lang] : [];
+      for (const epStr of list) {
+        const num = parseFloat(epStr);
+        if (isNaN(num)) continue;
+        const entry = merged.get(epStr) ?? { num, langs: [] };
+        if (!entry.langs.includes(lang)) entry.langs.push(lang);
+        merged.set(epStr, entry);
+      }
+    }
 
     const units: IContentUnit[] = [];
-    for (const epStr of episodes) {
-      const num = parseFloat(epStr);
-      if (isNaN(num)) continue;
+    for (const [epStr, { num, langs }] of merged) {
       units.push({
-        id: `${mediaId}/${epStr}/${resolvedLang}`,
+        id: `${mediaId}/${epStr}`,
         title: `Episode ${epStr}`,
         number: num,
-        language: resolvedLang,
+        availableLanguages: langs,
       });
     }
     return units.sort((a, b) => a.number - b.number);
@@ -153,11 +159,14 @@ export class AllmangaProvider extends BaseProvider {
     unitId: string,
     language?: ContentLanguage,
   ): Promise<ResolvedMediaStream> {
-    const [showId, episodeString, unitLang] = unitId.split('/');
+    // Accept both the new `${showId}/${episodeString}` shape and the legacy
+    // `${showId}/${episodeString}/${lang}` shape so older client links keep
+    // working until they're refreshed.
+    const [showId, episodeString, legacyLang] = unitId.split('/');
     if (!showId || !episodeString) {
       throw new Error(`Invalid AllManga unit ID: ${unitId}`);
     }
-    const lang = language ?? (unitLang as ContentLanguage | undefined) ?? this.defaultLanguage;
+    const lang = language ?? (legacyLang as ContentLanguage | undefined) ?? this.defaultLanguage;
 
     const sources = await this.fetchEpisodeSources(showId, episodeString, lang);
     if (sources.length === 0) {

@@ -40,16 +40,17 @@ const provider = new GogoanimeProvider(client);
 const shows = await provider.search('Frieren');
 console.log(shows[0].id, shows[0].title);
 
-// 2. Episodes
+// 2. Episodes — one call, language-agnostic.
 const eps = await provider.fetchContentUnits(shows[0].id);
-console.log(eps[0].id, eps[0].number);
+console.log(eps[0].id, eps[0].number, eps[0].availableLanguages); // e.g. ['sub', 'dub']
 
-// 3. Stream
-const result = await provider.resolveStream(eps[0].id);
+// 3. Stream — pick the translation here.
+const result = await provider.resolveStream(eps[0].id, 'sub');
 
 if (result.type === 'video') {
   for (const stream of result.streams) {
     console.log(stream.sourceUrl, stream.quality, stream.isHLS);
+    for (const t of stream.subtitles ?? []) console.log(' sub:', t.language, t.url);
   }
 }
 ```
@@ -76,23 +77,45 @@ interface IVideoPayload {
   quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
   language?: ContentLanguage;
   headers?: Record<string, string>; // Referer/User-Agent required by some CDNs
+  subtitles?: ISubtitleTrack[]; // external VTT tracks, when the provider has them
+}
+
+interface ISubtitleTrack {
+  url: string;
+  language: string; // BCP-47 (e.g. 'en', 'pt-BR')
+  label: string; // human-readable ("English", "Português")
+  format?: 'vtt' | 'srt' | 'ass';
 }
 ```
 
 ## Sub / dub / raw
 
-Pass a `ContentLanguage` to `fetchContentUnits` and `resolveStream`:
+`fetchContentUnits` returns one unified episode list — each `IContentUnit` advertises its translations via `availableLanguages: ContentLanguage[]`. The translation is picked at `resolveStream` time:
 
 ```ts
 type ContentLanguage = 'sub' | 'dub' | 'raw';
 ```
 
 ```ts
-const eps = await provider.fetchContentUnits(shows[0].id, 'dub');
-const result = await provider.resolveStream(eps[0].id, 'dub');
+const eps = await provider.fetchContentUnits(shows[0].id);
+const ep = eps[0]; // ep.availableLanguages tells you what's playable
+const result = await provider.resolveStream(ep.id, 'dub');
 ```
 
-Providers that don't support the requested language fall back to `'sub'`. Check `IContentUnit.language` in the returned episodes to see what was actually resolved.
+Providers that don't support the requested language fall back to `'sub'`.
+
+## Inspecting tracks without resolving the stream
+
+Some providers expose a cheap metadata endpoint so a UI can show the subtitle/quality selector before playback. Implement (or call) `fetchUnitTracks` when available:
+
+```ts
+if (provider.fetchUnitTracks) {
+  const { subtitles, qualities } = await provider.fetchUnitTracks(ep.id, 'sub');
+  // subtitles: ISubtitleTrack[], qualities: IVideoPayload['quality'][]
+}
+```
+
+Providers without a cheap path leave the method undefined — read `IVideoPayload.subtitles` straight off the resolved stream instead.
 
 ## Using the resolved URL
 

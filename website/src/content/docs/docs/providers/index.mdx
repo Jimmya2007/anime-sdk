@@ -3,17 +3,18 @@ title: Providers
 description: Overview of the three live-tested anime stream providers in ani-sdk.
 ---
 
-A provider is a site-specific adapter that maps search queries and episode IDs to direct stream URLs. All three ship with ani-sdk and are verified on every release.
+A provider is a site-specific adapter that maps search queries and episode IDs to direct stream URLs. All four ship with ani-sdk and are verified on every release.
 
 ## Available providers
 
-| ID          | Class               | Domain      | Languages     | Method            |
-| ----------- | ------------------- | ----------- | ------------- | ----------------- |
-| `allmanga`  | `AllmangaProvider`  | allmanga.to | sub, dub, raw | GraphQL + AES-CTR |
-| `gogoanime` | `GogoanimeProvider` | anineko.to  | sub           | HTML scrape + HLS |
-| `goyabu`    | `GoyabuProvider`    | goyabu.io   | raw (pt-br)   | batchexecute RPC  |
+| ID              | Class                   | Domain            | Languages     | Subtitles | Method            |
+| --------------- | ----------------------- | ----------------- | ------------- | --------- | ----------------- |
+| `animeparadise` | `AnimeParadiseProvider` | animeparadise.moe | sub           | yes (VTT) | REST API          |
+| `allmanga`      | `AllmangaProvider`      | allmanga.to       | sub, dub, raw | no        | GraphQL + AES-CTR |
+| `gogoanime`     | `GogoanimeProvider`     | anineko.to        | sub           | no        | HTML scrape + HLS |
+| `goyabu`        | `GoyabuProvider`        | goyabu.io         | raw (pt-br)   | no        | batchexecute RPC  |
 
-All three extend `BaseProvider` and expose identical method signatures.
+All extend `BaseProvider` and expose identical method signatures. `AnimeParadiseProvider` additionally implements the optional `fetchUnitTracks` for cheap subtitle/quality metadata.
 
 ## Swapping providers
 
@@ -45,7 +46,9 @@ These tests run without mocking. If a provider's upstream site changes its API o
 
 ## Selecting a provider
 
-**AllManga** is the best choice for most use cases — it has the widest catalogue, supports sub and dub, and uses a stable GraphQL API rather than HTML scraping.
+**AllManga** is the best choice for breadth — widest catalogue, sub + dub, stable GraphQL API.
+
+**AnimeParadise** is the best choice when you want **external subtitle tracks** that the SDK can hand straight to a `<track>` element (the others bake subs into the video).
 
 **Gogoanime** (anineko.to) is a useful fallback when AllManga is missing a title. Sub only.
 
@@ -57,6 +60,7 @@ The `id` property is used to identify providers in the HTTP server's `provider=`
 
 ```sh
 curl 'localhost:3000/search?q=Naruto&provider=allmanga'
+curl 'localhost:3000/search?q=Naruto&provider=animeparadise'
 curl 'localhost:3000/search?q=Naruto&provider=gogoanime'
 curl 'localhost:3000/search?q=Naruto&provider=goyabu'
 ```

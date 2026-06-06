@@ -8,8 +8,8 @@ const get = (path: string, params: Record<string, string>) =>
 
 export const search = (provider: string, q: string) => get('/search', { provider, q });
 
-export const content = (provider: string, mediaId: string, language: string) =>
-  get('/content', { provider, mediaId, language });
+export const content = (provider: string, mediaId: string) =>
+  get('/content', { provider, mediaId });
 
 export const stream = (provider: string, unitId: string, language: string) =>
   get('/stream', { provider, unitId, language });
@@ -28,7 +28,14 @@ export interface Episode {
   id: string;
   title: string;
   number: number;
-  language: Lang;
+  availableLanguages: Lang[];
+}
+
+export interface SubtitleTrack {
+  url: string;
+  language: string;
+  label: string;
+  format?: 'vtt' | 'srt' | 'ass';
 }
 
 export interface VideoStream {
@@ -37,6 +44,7 @@ export interface VideoStream {
   quality: string;
   language?: Lang;
   headers?: Record<string, string>;
+  subtitles?: SubtitleTrack[];
 }
 
 export interface ResolvedStream {

@@ -98,10 +98,7 @@ export class GoyabuProvider extends BaseProvider {
   /**
    * Fetch all content units (episodes) for a given Goyabu anime URL slug (e.g. "/anime/...").
    */
-  public async fetchContentUnits(
-    mediaId: string,
-    _language?: import('../types/index.js').ContentLanguage,
-  ): Promise<IContentUnit[]> {
+  public async fetchContentUnits(mediaId: string): Promise<IContentUnit[]> {
     const fullUrl = `${this.baseUrl}${mediaId.startsWith('/') ? '' : '/'}${mediaId}`;
     const response = await this.http.get(fullUrl);
     if (response.status !== 200) {
@@ -148,7 +145,7 @@ export class GoyabuProvider extends BaseProvider {
               id: link,
               title: ep.episode_name ? `Episódio ${num}: ${ep.episode_name}` : `Episódio ${num}`,
               number: num,
-              language: 'sub',
+              availableLanguages: ['sub'],
             });
           }
           foundArray = true;
@@ -179,7 +176,7 @@ export class GoyabuProvider extends BaseProvider {
           id,
           title: `Episódio ${num}`,
           number: num,
-          language: 'sub',
+          availableLanguages: ['sub'],
         });
       }
     }

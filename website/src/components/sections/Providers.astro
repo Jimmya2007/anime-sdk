@@ -1,6 +1,15 @@
 ---
 const providers = [
   {
+    id: 'animeparadise',
+    domain: 'animeparadise.moe',
+    languages: ['sub'],
+    method: 'REST API',
+    methodStyle: 'background:#065f46;color:#d1fae5',
+    tags: ['HLS', 'token-signed', 'VTT subs'],
+    description: `Clean <span class="fn">REST</span> API at api.animeparadise.moe. Episodes carry a signed <span class="typ">streamLink</span> token; final stream served by <span class="str">stream.animeparadise.moe</span> as a multi-quality HLS master, with external VTT subtitle tracks.`,
+  },
+  {
     id: 'allmanga',
     domain: 'allmanga.to',
     languages: ['sub', 'dub'],

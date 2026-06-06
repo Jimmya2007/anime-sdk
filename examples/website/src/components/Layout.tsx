@@ -1,7 +1,5 @@
 import { Fragment } from 'react';
-import { Link, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-
-const LANGS = ['sub', 'dub', 'raw'] as const;
+import { Link, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 
 interface Crumb {
   label: string;
@@ -12,19 +10,18 @@ function buildCrumbs(pathname: string, sp: URLSearchParams): Crumb[] {
   const provider = sp.get('provider');
   const title = sp.get('title');
   const ep = sp.get('ep');
-  const lang = sp.get('lang') ?? 'sub';
 
-  const crumbs: Crumb[] = [{ label: 'ANI-SDK', href: `/?lang=${lang}` }];
+  const crumbs: Crumb[] = [{ label: 'ANI-SDK', href: `/` }];
 
   if (provider) {
-    const providerHref = `/?provider=${provider}&lang=${lang}`;
+    const providerHref = `/?provider=${provider}`;
     crumbs.push(pathname === '/' ? { label: provider } : { label: provider, href: providerHref });
   }
 
   if (title) {
     const mid = sp.get('mid');
     const episodesHref = mid
-      ? `/episodes?provider=${provider}&mid=${encodeURIComponent(mid)}&title=${encodeURIComponent(title)}&lang=${lang}`
+      ? `/episodes?provider=${provider}&mid=${encodeURIComponent(mid)}&title=${encodeURIComponent(title)}`
       : undefined;
     crumbs.push(pathname === '/episodes' ? { label: title } : { label: title, href: episodesHref });
   }
@@ -36,23 +33,13 @@ function buildCrumbs(pathname: string, sp: URLSearchParams): Crumb[] {
 
 export default function Layout() {
   const loc = useLocation();
-  const navigate = useNavigate();
-  const [sp, setSp] = useSearchParams();
+  const [sp] = useSearchParams();
   const crumbs = buildCrumbs(loc.pathname, sp);
-  const lang = sp.get('lang') ?? 'sub';
-
-  function setLang(l: string) {
-    setSp((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('lang', l);
-      return next;
-    });
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] font-mono text-sm text-[#d0d0d0]">
       <div className="mx-auto max-w-3xl">
-        <header className="flex items-center justify-between border-b border-[#1e1e1e] px-4 py-3">
+        <header className="flex items-center border-b border-[#1e1e1e] px-4 py-3">
           <div className="flex items-center gap-0">
             {crumbs.map((c, i) => (
               <Fragment key={i}>
@@ -68,21 +55,6 @@ export default function Layout() {
                   <span className="text-xs tracking-widest text-[#ccc]">{c.label}</span>
                 )}
               </Fragment>
-            ))}
-          </div>
-          <div className="flex items-center gap-0.5">
-            {LANGS.map((l) => (
-              <button
-                key={l}
-                onClick={() => setLang(l)}
-                className={`border px-2 py-0.5 text-xs tracking-widest transition-colors ${
-                  lang === l
-                    ? 'border-[#555] bg-[#111] text-white'
-                    : 'border-transparent text-[#444] hover:text-[#888]'
-                }`}
-              >
-                {l}
-              </button>
             ))}
           </div>
         </header>

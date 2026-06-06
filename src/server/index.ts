@@ -1,7 +1,8 @@
 import * as http from 'node:http';
 import { Readable } from 'node:stream';
 import { BaseProvider } from '../providers/BaseProvider.js';
-import { ContentLanguage, ResolvedMediaStream } from '../types/index.js';
+import { ContentLanguage, IUnitTracks, ResolvedMediaStream, SdkCache } from '../types/index.js';
+import { proxifySubtitleUrl } from '../utils/subtitles.js';
 
 export interface ServerOptions {
   providers: BaseProvider[];
@@ -12,12 +13,20 @@ export interface ServerOptions {
    * to go through it — so browsers can play streams that require custom headers.
    */
   proxy?: boolean;
+  /**
+   * Optional read/write cache for provider responses. When set, `/search`,
+   * `/content`, `/stream`, and `/tracks` results are looked up by a stable
+   * key before invoking the provider. See {@link SdkCache} for the contract
+   * and the key namespacing used.
+   */
+  cache?: SdkCache;
 }
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': '*',
+  'Access-Control-Expose-Headers': '*',
 };
 
 function json(res: http.ServerResponse, status: number, body: unknown): void {
@@ -61,8 +70,8 @@ function rewriteHls(manifest: string, baseUrl: string, proxyBase: string, hParam
 }
 
 /**
- * Rewrite video stream `sourceUrl` fields to route through the proxy,
- * with any required headers encoded in the `h` query param.
+ * Rewrite video stream `sourceUrl` fields (and subtitle URLs) to route through
+ * the proxy, with any required headers encoded in the `h` query param.
  */
 function proxyifyStream(stream: ResolvedMediaStream, proxyBase: string): ResolvedMediaStream {
   if (stream.type !== 'video') return stream;
@@ -74,14 +83,39 @@ function proxyifyStream(stream: ResolvedMediaStream, proxyBase: string): Resolve
           ? Buffer.from(JSON.stringify(s.headers)).toString('base64')
           : undefined;
       const suffix = hParam ? `&h=${encodeURIComponent(hParam)}` : '';
-      return { ...s, sourceUrl: `${proxyBase}?url=${encodeURIComponent(s.sourceUrl)}${suffix}` };
+      const subtitles = s.subtitles?.map((t) => ({
+        ...t,
+        url: proxifySubtitleUrl(proxyBase, t),
+      }));
+      return {
+        ...s,
+        sourceUrl: `${proxyBase}?url=${encodeURIComponent(s.sourceUrl)}${suffix}`,
+        ...(subtitles ? { subtitles } : {}),
+      };
     }),
   };
 }
 
+/** Wrap the subtitle URLs returned by `fetchUnitTracks` through `/proxy`. */
+function proxyifyTracks(tracks: IUnitTracks, proxyBase: string): IUnitTracks {
+  return {
+    ...tracks,
+    subtitles: tracks.subtitles.map((t) => ({ ...t, url: proxifySubtitleUrl(proxyBase, t) })),
+  };
+}
+
 export function startServer(options: ServerOptions): http.Server {
-  const { providers, port = 3000, auth, proxy = false } = options;
+  const { providers, port = 3000, auth, proxy = false, cache } = options;
   const proxyBase = `http://localhost:${port}/proxy`;
+
+  async function cached<T>(key: string, compute: () => Promise<T>): Promise<T> {
+    if (!cache) return compute();
+    const hit = await cache.get(key);
+    if (hit !== undefined) return hit as T;
+    const value = await compute();
+    await cache.set(key, value);
+    return value;
+  }
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost`);
@@ -114,7 +148,13 @@ export function startServer(options: ServerOptions): http.Server {
         if (!targetUrl) return err(res, 400, 'Missing param: url');
 
         const hParam = q.get('h');
-        const upstreamHeaders: Record<string, string> = { Accept: '*/*' };
+        const upstreamHeaders: Record<string, string> = {
+          Accept: '*/*',
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'identity',
+        };
         if (hParam) {
           try {
             Object.assign(
@@ -128,7 +168,15 @@ export function startServer(options: ServerOptions): http.Server {
         // Forward Range header for video seeking
         if (req.headers.range) upstreamHeaders['Range'] = req.headers.range;
 
-        const upstream = await fetch(targetUrl, { headers: upstreamHeaders, redirect: 'follow' });
+        // Abort the upstream fetch when the client disconnects to avoid leaking connections
+        const abortCtrl = new AbortController();
+        req.on('close', () => abortCtrl.abort());
+
+        const upstream = await fetch(targetUrl, {
+          headers: upstreamHeaders,
+          redirect: 'follow',
+          signal: abortCtrl.signal,
+        });
 
         const ct = upstream.headers.get('content-type') ?? '';
 
@@ -156,9 +204,19 @@ export function startServer(options: ServerOptions): http.Server {
 
         // For non-HLS (segments, MP4, etc.) — stream without buffering
         // Some CDNs disguise .ts segments as image/* or text/* — override the type
+        const ctOverride = q.get('ct');
         let contentType = ct || 'application/octet-stream';
-        if (ct.startsWith('image/') || (ct.startsWith('text/') && !ct.includes('html'))) {
+        if (ctOverride) {
+          contentType = ctOverride;
+        } else if (ct.startsWith('image/') || (ct.startsWith('text/') && !ct.includes('html'))) {
           contentType = 'video/mp2t';
+        }
+        // mp4upload and similar CDNs return application/octet-stream for .mp4 files
+        if (
+          contentType === 'application/octet-stream' &&
+          targetUrl.split('?')[0].toLowerCase().endsWith('.mp4')
+        ) {
+          contentType = 'video/mp4';
         }
 
         const outHeaders: Record<string, string> = { ...CORS, 'Content-Type': contentType };
@@ -166,11 +224,18 @@ export function startServer(options: ServerOptions): http.Server {
         if (cl) outHeaders['Content-Length'] = cl;
         const cr = upstream.headers.get('content-range');
         if (cr) outHeaders['Content-Range'] = cr;
+        const ar = upstream.headers.get('accept-ranges');
+        outHeaders['Accept-Ranges'] = ar ?? 'bytes';
 
         res.writeHead(upstream.status, outHeaders);
 
         if (upstream.body) {
-          Readable.fromWeb(upstream.body as Parameters<typeof Readable.fromWeb>[0]).pipe(res);
+          const readable = Readable.fromWeb(
+            upstream.body as Parameters<typeof Readable.fromWeb>[0],
+          );
+          readable.on('error', () => {});
+          res.on('close', () => readable.destroy());
+          readable.pipe(res);
         } else {
           res.end();
         }
@@ -178,21 +243,29 @@ export function startServer(options: ServerOptions): http.Server {
       }
 
       // ── API ────────────────────────────────────────────────────────────
+      // Each handler runs its provider call through the optional `cache`.
+      // Keys are namespaced by endpoint + provider so the consumer's cache
+      // can apply different TTLs per kind if it wants to.
       if (url.pathname === '/search') {
         const query = q.get('q');
         const provider = findProvider(q.get('provider'));
         if (!query) return err(res, 400, 'Missing param: q');
         if (!provider) return err(res, 400, 'Missing or unknown param: provider');
-        return json(res, 200, await provider.search(query));
+        const items = await cached(`search:${provider.id}:${query}`, () => provider.search(query));
+        return json(res, 200, items);
       }
 
       if (url.pathname === '/content') {
         const mediaId = q.get('mediaId');
         const provider = findProvider(q.get('provider'));
-        const language = q.get('language') as ContentLanguage | null;
         if (!mediaId) return err(res, 400, 'Missing param: mediaId');
         if (!provider) return err(res, 400, 'Missing or unknown param: provider');
-        return json(res, 200, await provider.fetchContentUnits(mediaId, language ?? undefined));
+        // One call returns all episodes; each unit advertises its available
+        // translations. Callers pick the language at /stream time.
+        const units = await cached(`content:${provider.id}:${mediaId}`, () =>
+          provider.fetchContentUnits(mediaId),
+        );
+        return json(res, 200, units);
       }
 
       if (url.pathname === '/stream') {
@@ -201,9 +274,34 @@ export function startServer(options: ServerOptions): http.Server {
         const language = q.get('language') as ContentLanguage | null;
         if (!unitId) return err(res, 400, 'Missing param: unitId');
         if (!provider) return err(res, 400, 'Missing or unknown param: provider');
-        let stream = await provider.resolveStream(unitId, language ?? undefined);
+        let stream = await cached(`stream:${provider.id}:${unitId}:${language ?? ''}`, () =>
+          provider.resolveStream(unitId, language ?? undefined),
+        );
         if (proxy) stream = proxyifyStream(stream, proxyBase);
         return json(res, 200, stream);
+      }
+
+      if (url.pathname === '/tracks') {
+        const unitId = q.get('unitId');
+        const provider = findProvider(q.get('provider'));
+        const language = q.get('language') as ContentLanguage | null;
+        if (!unitId) return err(res, 400, 'Missing param: unitId');
+        if (!provider) return err(res, 400, 'Missing or unknown param: provider');
+        // Only the cheap metadata path. Providers without `fetchUnitTracks`
+        // return 501 — clients should fall back to /stream's subtitle info
+        // rather than pay the resolveStream cost twice.
+        if (!provider.fetchUnitTracks) {
+          return err(
+            res,
+            501,
+            `Provider "${provider.id}" does not expose track metadata; read subtitles from /stream instead`,
+          );
+        }
+        let tracks = await cached(`tracks:${provider.id}:${unitId}:${language ?? ''}`, () =>
+          provider.fetchUnitTracks!(unitId, language ?? undefined),
+        );
+        if (proxy) tracks = proxyifyTracks(tracks, proxyBase);
+        return json(res, 200, tracks);
       }
 
       return err(res, 404, 'Not found');

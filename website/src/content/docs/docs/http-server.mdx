@@ -3,15 +3,12 @@ title: HTTP Server
 description: Run ani-sdk as a standalone HTTP server and call it from any language over HTTP.
 ---
 
-`startServer` launches a Node `http.Server` that exposes three routes matching the SDK's three operations. Pass the providers you want to expose and an optional bearer token.
+`startServer` launches a Node `http.Server` that exposes the SDK's operations as HTTP routes: `/search`, `/content`, `/stream`, `/tracks`, and (optionally) `/proxy`. Pass the providers you want to expose, plus optional flags for the proxy, a bearer token, and a cache.
 
 ## Starting the server
 
 ```ts
-import { DOMParser } from 'linkedom';
 import { HttpClient, AllmangaProvider, GogoanimeProvider, startServer } from 'ani-sdk';
-
-(globalThis as any).DOMParser = DOMParser;
 
 const server = startServer({
   providers: [
@@ -19,6 +16,7 @@ const server = startServer({
     new GogoanimeProvider(new HttpClient({ timeoutMs: 10_000 })),
   ],
   port: 3000, // default: 3000
+  proxy: true, // optional — enables /proxy and rewrites stream + subtitle URLs through it
 });
 
 // server is an http.Server — you can call server.close() to shut it down
@@ -60,16 +58,15 @@ Response: `IMediaSearchResult[]`
 
 ### `GET /content`
 
-List episodes for a show.
+List episodes for a show. One call returns the unified, language-agnostic list — each episode advertises its translations.
 
-| Param      | Required | Description                                                        |
-| ---------- | -------- | ------------------------------------------------------------------ |
-| `mediaId`  | ✓        | `id` from a search result                                          |
-| `provider` | ✓        | Provider ID                                                        |
-| `language` |          | `sub` \| `dub` \| `raw` (default: provider default, usually `sub`) |
+| Param      | Required | Description               |
+| ---------- | -------- | ------------------------- |
+| `mediaId`  | ✓        | `id` from a search result |
+| `provider` | ✓        | Provider ID               |
 
 ```sh
-curl 'localhost:3000/content?mediaId=frieren-beyond-journeys-end&provider=allmanga&language=sub'
+curl 'localhost:3000/content?mediaId=frieren-beyond-journeys-end&provider=allmanga'
 ```
 
 Response: `IContentUnit[]`
@@ -77,17 +74,17 @@ Response: `IContentUnit[]`
 ```json
 [
   {
-    "id": "frieren-beyond-journeys-end/1/sub",
+    "id": "frieren-beyond-journeys-end/1",
     "title": "Episode 1",
     "number": 1,
-    "language": "sub"
+    "availableLanguages": ["sub", "dub"]
   }
 ]
 ```
 
 ### `GET /stream`
 
-Resolve a direct stream URL for an episode.
+Resolve a direct stream URL for an episode. Pick the translation here.
 
 | Param      | Required | Description                |
 | ---------- | -------- | -------------------------- |
@@ -96,7 +93,7 @@ Resolve a direct stream URL for an episode.
 | `language` |          | `sub` \| `dub` \| `raw`    |
 
 ```sh
-curl 'localhost:3000/stream?unitId=frieren-beyond-journeys-end%2F1%2Fsub&provider=allmanga'
+curl 'localhost:3000/stream?unitId=frieren-beyond-journeys-end%2F1&provider=allmanga&language=dub'
 ```
 
 Response: `ResolvedMediaStream`
@@ -109,12 +106,54 @@ Response: `ResolvedMediaStream`
       "sourceUrl": "https://a4.mp4upload.com:183/d/.../video.mp4",
       "isHLS": false,
       "quality": "auto",
-      "language": "sub",
-      "headers": { "Referer": "https://mp4upload.com/" }
+      "language": "dub",
+      "headers": { "Referer": "https://mp4upload.com/" },
+      "subtitles": [
+        {
+          "url": "https://cdn.example.com/subs/en.vtt",
+          "language": "en",
+          "label": "English",
+          "format": "vtt"
+        }
+      ]
     }
   ]
 }
 ```
+
+When `proxy: true`, both `sourceUrl` and every subtitle `url` are rewritten through `/proxy` automatically.
+
+### `GET /tracks`
+
+Inspect subtitle + quality availability for a unit **without** resolving the playable stream. Useful for populating a subtitle selector before the user hits play.
+
+| Param      | Required | Description                |
+| ---------- | -------- | -------------------------- |
+| `unitId`   | ✓        | `id` from a content result |
+| `provider` | ✓        | Provider ID                |
+| `language` |          | `sub` \| `dub` \| `raw`    |
+
+```sh
+curl 'localhost:3000/tracks?unitId=...&provider=animeparadise&language=sub'
+```
+
+Response: `IUnitTracks`
+
+```json
+{
+  "subtitles": [
+    {
+      "url": "http://localhost:3000/proxy?url=...&ct=text%2Fvtt",
+      "label": "English",
+      "language": "en",
+      "format": "vtt"
+    }
+  ],
+  "qualities": ["auto"]
+}
+```
+
+Returns **501** if the provider doesn't implement `fetchUnitTracks` — read subtitles from `/stream`'s response instead.
 
 ## Authentication
 
@@ -135,6 +174,45 @@ curl -H 'Authorization: Bearer mysecret' 'localhost:3000/search?q=Naruto&provide
 ```
 
 Requests without a valid token receive `401 Unauthorized`. Skip `auth` entirely for local use.
+
+## Caching
+
+`startServer` accepts an optional `cache` that memoises provider calls across `/search`, `/content`, `/stream`, and `/tracks`. The contract is two methods:
+
+```ts
+interface SdkCache {
+  get(key: string): unknown | Promise<unknown>;
+  set(key: string, value: unknown): void | Promise<void>;
+}
+```
+
+A plain `Map` satisfies it — bring whatever store you like (Redis, SQLite, edge KV):
+
+```ts
+const store = new Map();
+const cache = {
+  get: (key) => store.get(key),
+  set: (key, value) => void store.set(key, value),
+};
+
+startServer({
+  providers: [new AllmangaProvider(new HttpClient())],
+  port: 3000,
+  proxy: true,
+  cache,
+});
+```
+
+Keys are namespaced so different endpoints can have different policies:
+
+| Prefix     | Key shape                             | Notes                                                              |
+| ---------- | ------------------------------------- | ------------------------------------------------------------------ |
+| `search:`  | `search:<providerId>:<query>`         | Stable; safe to cache for long.                                    |
+| `content:` | `content:<providerId>:<mediaId>`      | Stable; safe to cache for long.                                    |
+| `stream:`  | `stream:<providerId>:<unitId>:<lang>` | Stream URLs may carry signed expiries — apply a short TTL or skip. |
+| `tracks:`  | `tracks:<providerId>:<unitId>:<lang>` | Cheap to compute when the provider supports it; cache freely.      |
+
+`get` returns `undefined` for a miss; any other value (including `null`) is treated as a hit and served as-is. To skip caching a specific endpoint, inspect the prefix in your `set` and bail out.
 
 ## Error responses
 

@@ -1,9 +1,13 @@
 ---
 const serverStartCode = `<code><span class="kw">import</span> <span class="pun">{</span> <span class="typ">startServer</span><span class="pun">,</span> <span class="typ">AllmangaProvider</span><span class="pun">,</span> <span class="typ">HttpClient</span> <span class="pun">}</span> <span class="kw">from</span> <span class="str">'ani-sdk'</span><span class="pun">;</span>
 
+<span class="kw">const</span> store <span class="pun">=</span> <span class="kw">new</span> <span class="fn">Map</span><span class="pun">();</span>
+
 <span class="fn">startServer</span><span class="pun">({</span>
   providers<span class="pun">:</span> <span class="pun">[</span><span class="kw">new</span> <span class="fn">AllmangaProvider</span><span class="pun">(</span><span class="kw">new</span> <span class="fn">HttpClient</span><span class="pun">())],</span>
   port<span class="pun">:</span> <span class="num">3000</span><span class="pun">,</span>
+  proxy<span class="pun">:</span> <span class="kw">true</span><span class="pun">,</span>
+  cache<span class="pun">:</span> <span class="pun">{</span> get<span class="pun">:</span> <span class="pun">(</span>k<span class="pun">)</span> =&gt; store<span class="pun">.</span><span class="fn">get</span><span class="pun">(</span>k<span class="pun">),</span> set<span class="pun">:</span> <span class="pun">(</span>k<span class="pun">,</span> v<span class="pun">)</span> =&gt; store<span class="pun">.</span><span class="fn">set</span><span class="pun">(</span>k<span class="pun">,</span> v<span class="pun">)</span> <span class="pun">},</span>
 <span class="pun">});</span>
 
 <span class="cm">// → http://localhost:3000</span></code>`;
@@ -11,11 +15,11 @@ const serverStartCode = `<code><span class="kw">import</span> <span class="pun">
 const serverCurlCode = `<code><span class="cm"># search</span>
 curl <span class="str">'localhost:3000/search?q=One+Piece&amp;provider=allmanga'</span>
 
-<span class="cm"># episodes</span>
+<span class="cm"># episodes — one call, all languages</span>
 curl <span class="str">'localhost:3000/content?mediaId=...&amp;provider=allmanga'</span>
 
-<span class="cm"># stream URL</span>
-curl <span class="str">'localhost:3000/stream?unitId=...&amp;language=sub'</span></code>`;
+<span class="cm"># stream URL + subtitles, pick the lang here</span>
+curl <span class="str">'localhost:3000/stream?unitId=...&amp;language=dub'</span></code>`;
 
 const serverAuthCode = `<code><span class="fn">startServer</span><span class="pun">({</span>
   providers<span class="pun">:</span> <span class="pun">[</span><span class="kw">new</span> <span class="fn">AllmangaProvider</span><span class="pun">(</span><span class="kw">new</span> <span class="fn">HttpClient</span><span class="pun">())],</span>
@@ -34,8 +38,9 @@ const serverAuthCode = `<code><span class="fn">startServer</span><span class="pu
         <h2 class="text-[28px] font-bold tracking-tight">Skip the API boilerplate.</h2>
       </div>
       <p class="text-[14px]" style="color: var(--muted);">
-        ani-sdk ships with a ready-to-run HTTP server. Same three operations, now as routes. Add a
-        bearer token for auth, point any client at it, ship.
+        ani-sdk ships with a ready-to-run HTTP server. Routes for search, episodes, streams, and
+        track metadata; an optional stream + subtitle proxy; bring-your-own cache with a two-method
+        get/set interface; bearer-token auth. Point any client at it, ship.
       </p>
     </div>
   </div>

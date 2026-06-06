@@ -213,7 +213,9 @@ async function captureFromHls(
   fs.writeFileSync(tmpSeg, bytes);
   try {
     const seek = target.duration > 2 ? '00:00:02' : '00:00:00';
-    execSync(`ffmpeg -y -ss ${seek} -i "${tmpSeg}" -frames:v 1 -q:v 2 "${outputPath}"`, {
+    // -ss after -i uses slow/accurate seek, which correctly handles segments
+    // with non-zero absolute PTS (common in HLS streams from proxy CDNs).
+    execSync(`ffmpeg -y -i "${tmpSeg}" -ss ${seek} -frames:v 1 -q:v 2 "${outputPath}"`, {
       stdio: 'pipe',
       timeout: 25000,
     });

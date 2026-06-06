@@ -41,12 +41,13 @@ const shows = await provider.search('Attack on Titan');
 //               catalogType: 'ANIME', providerId: 'allmanga',
 //               availableLanguages: ['sub', 'dub'] }
 
-// Episodes — pass 'sub' or 'dub'; falls back to 'sub' if unavailable
-const eps = await provider.fetchContentUnits(shows[0].id, 'dub');
-// eps[0] => { id: 'shingeki-no-kyojin/1/dub', title: 'Episode 1',
-//             number: 1, language: 'dub' }
+// Episodes — one call, language-agnostic. sub/dub/raw availability is
+// merged per episode into `availableLanguages`.
+const eps = await provider.fetchContentUnits(shows[0].id);
+// eps[0] => { id: 'shingeki-no-kyojin/1', title: 'Episode 1',
+//             number: 1, availableLanguages: ['sub', 'dub'] }
 
-// Stream
+// Stream — pick the translation here.
 const result = await provider.resolveStream(eps[0].id, 'dub');
 // result => { type: 'video', streams: [...] }
 
@@ -64,17 +65,17 @@ if (result.type === 'video') {
 | `'dub'`  | Full — many popular titles             |
 | `'raw'`  | Where available; falls back to `'sub'` |
 
-`search()` returns `availableLanguages` on each result so you can check upfront. `fetchContentUnits()` and `resolveStream()` fall back to `'sub'` if the requested language isn't available for a given title.
+`search()` returns `availableLanguages` per title; `fetchContentUnits()` returns it per episode. `resolveStream()` falls back to `'sub'` if the requested language isn't available for that episode.
 
 ## Content unit ID format
 
-AllManga unit IDs embed the show ID, episode string, and language:
+AllManga unit IDs are language-agnostic:
 
 ```
-{showId}/{episodeString}/{language}
+{showId}/{episodeString}
 ```
 
-Example: `shingeki-no-kyojin/1/sub`. Do not construct these manually — always use IDs from `fetchContentUnits`.
+Example: `shingeki-no-kyojin/1`. The legacy `{showId}/{episodeString}/{language}` shape from older builds still resolves. Do not construct these manually — always use IDs from `fetchContentUnits`.
 
 ## How stream resolution works
 

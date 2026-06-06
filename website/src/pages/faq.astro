@@ -18,7 +18,7 @@ const faqs = [
   },
   {
     q: 'Do I need FlareSolverrClient for basic use?',
-    a: "No. None of the three built-in providers (AllManga, Gogoanime, Goyabu) require FlareSolverrClient. It's an optional transport for custom providers that target Cloudflare or DDoS-Guard protected sites.",
+    a: "No. None of the four built-in providers (AnimeParadise, AllManga, Gogoanime, Goyabu) require FlareSolverrClient. It's an optional transport for custom providers that target Cloudflare or DDoS-Guard protected sites.",
   },
   {
     q: 'What does resolveStream actually return?',
@@ -34,7 +34,15 @@ const faqs = [
   },
   {
     q: 'What is the difference between sub, dub, and raw?',
-    a: "sub = original audio with subtitles (default). dub = audio dubbed into another language (usually English). raw = original audio with no subtitles. Providers that don't support a requested language fall back to sub.",
+    a: "sub = original audio with subtitles (default). dub = audio dubbed into another language (usually English). raw = original audio with no subtitles. fetchContentUnits returns one unified episode list — each unit's availableLanguages array tells you which of these it can be played in. Pick the translation when you call resolveStream; providers that don't support the requested language fall back to sub.",
+  },
+  {
+    q: 'How do I get subtitle tracks?',
+    a: 'When a provider exposes external subtitles (currently AnimeParadise), IVideoPayload.subtitles carries ISubtitleTrack[] (url, language, label, format). With proxy: true on startServer, those URLs are already rewritten through /proxy with the right Content-Type — hand them straight to a <track> element on a <video crossOrigin="anonymous">. You can also call /tracks (or provider.fetchUnitTracks) for the same data without resolving the playable stream.',
+  },
+  {
+    q: 'Does the SDK cache anything?',
+    a: 'Not by itself. startServer accepts an optional cache: SdkCache (a two-method get/set interface) and memoises /search, /content, /stream, and /tracks results by namespaced keys. Plug in a Map for dev, Redis or SQLite for production. The example examples/server.mjs uses a Map with simple FIFO eviction.',
   },
   {
     q: 'How are providers tested?',

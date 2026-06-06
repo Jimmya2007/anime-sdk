@@ -107,10 +107,7 @@ export class MyProvider extends BaseProvider {
     }));
   }
 
-  public async fetchContentUnits(
-    mediaId: string,
-    language?: ContentLanguage,
-  ): Promise<IContentUnit[]> {
+  public async fetchContentUnits(mediaId: string): Promise<IContentUnit[]> {
     const res = await this.http.get(`${this.baseUrl}${mediaId}`);
     if (res.status !== 200) throw new Error(`Failed to fetch: ${res.status}`);
 
@@ -121,7 +118,7 @@ export class MyProvider extends BaseProvider {
       id: a.getAttribute('href') ?? '',
       title: `Episode ${i + 1}`,
       number: i + 1,
-      language: language ?? 'sub',
+      availableLanguages: ['sub'],
     }));
   }
 
@@ -310,8 +307,10 @@ npm run build   # tsc → dist/ (ESM, NodeNext)
 - [ ] Extends `BaseProvider`, sets `id` and `supportedTypes`
 - [ ] Accepts `HttpClient` in constructor; optionally accepts provider-specific options via an interface
 - [ ] `search` returns `IMediaSearchResult[]` with `id`, `title`, `catalogType`, `providerId`
-- [ ] `fetchContentUnits` returns `IContentUnit[]` sorted by `number`
-- [ ] `resolveStream` returns `ResolvedMediaStream` — at minimum `{ type: 'video', streams: [...] }`
+- [ ] `fetchContentUnits` returns `IContentUnit[]` sorted by `number`; each unit sets `availableLanguages` (a non-empty subset of `ContentLanguage`)
+- [ ] `resolveStream` accepts a `language` parameter, returns `ResolvedMediaStream` — at minimum `{ type: 'video', streams: [...] }`
+- [ ] If the provider has external subtitle tracks, populate `IVideoPayload.subtitles` (use `normalizeSubtitleEntries` from `utils/subtitles.js` to massage upstream shapes)
+- [ ] Optional: implement `fetchUnitTracks` when the provider can describe subtitle/quality availability cheaper than a full `resolveStream`
 - [ ] All imports use `.js` extension
 - [ ] Exported from `src/index.ts`
 - [ ] Live E2E test using `captureStreamScreenshot` — no mocking, 90s timeout

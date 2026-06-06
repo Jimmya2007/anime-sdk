@@ -29,13 +29,16 @@ The SDK has three layers, all wired around a single `HttpClient`:
 
 **2. Extractors (`src/extractors/`)** — stateless, take only an embed URL and an `HttpClient`, return `IVideoPayload[]` (empty if they can't recover a direct stream). `BaseExtractor` is the contract. They're independently usable — a consumer can hand any embed URL to `BloggerExtractor` without involving a provider.
 
-**3. Providers (`src/providers/`)** — site-specific. `BaseProvider` defines `search` → `fetchContentUnits(mediaId, language?)` → `resolveStream(unitId, language?)`. `ContentLanguage` is `'sub' | 'dub' | 'raw'`; providers that don't support a language fall back to `'sub'`. Each provider composes one or more extractors:
+**3. Providers (`src/providers/`)** — site-specific. `BaseProvider` defines `search` → `fetchContentUnits(mediaId)` → `resolveStream(unitId, language?)`. `fetchContentUnits` is **language-agnostic** and returns one unified list; each `IContentUnit` carries `availableLanguages: ContentLanguage[]` so the caller picks the translation at `resolveStream` time. Providers may optionally implement `fetchUnitTracks(unitId, language?): Promise<IUnitTracks>` to expose subtitle/quality metadata without paying the `resolveStream` cost. `IVideoPayload.subtitles?: ISubtitleTrack[]` carries playable VTT URLs alongside the stream. Each provider composes one or more extractors:
 
-- `AllmangaProvider` — AllAnime GraphQL → AES-CTR-decrypted `tobeparsed` payload → `Mp4UploadExtractor`, with a `clock.json` fallback for wixmp/sharepoint sources. Source URLs are obfuscated with a `--<hex>` scheme XOR'd with `0x38`; see `decodeAllAnimeSource`.
+- `AnimeParadiseProvider` — `api.animeparadise.moe` REST. `/anime/{id}/episode` for the list (sub only). `/ep/{uid}?origin={animeId}` returns the playable HLS link **and** `subData`, which `normalizeSubtitleEntries` (in `utils/subtitles.ts`) turns into VTT-only `ISubtitleTrack[]`. Implements `fetchUnitTracks` cheaply (just `/ep`, no stream URL resolution).
+- `AllmangaProvider` — AllAnime GraphQL → AES-CTR-decrypted `tobeparsed` payload → `Mp4UploadExtractor`, with a `clock.json` fallback for wixmp/sharepoint sources. Source URLs are obfuscated with a `--<hex>` scheme XOR'd with `0x38`; see `decodeAllAnimeSource`. `fetchContentUnits` merges `availableEpisodesDetail.sub` + `.dub` + `.raw` into a single language-agnostic list; unit IDs are `${mediaId}/${epStr}` (legacy `${mediaId}/${epStr}/${lang}` IDs still resolve).
 - `GogoanimeProvider` — HTML scrape of `anineko.to`; vibeplayer embed → `master.m3u8` via `GenericHlsExtractor`.
 - `GoyabuProvider` — pulls a Blogger token from `playersData`, calls Google `batchexecute` to recover the `googlevideo.com` URL via `BloggerExtractor`.
 
-All public surface is re-exported from `src/index.ts`.
+All public surface is re-exported from `src/index.ts`, including the shared subtitle utilities (`normalizeSubtitleEntries`, `proxifySubtitleUrl`).
+
+**4. Server (`src/server/index.ts`)** — `startServer({ providers, port, proxy, cache, auth })`. Routes: `GET /search`, `/content`, `/stream`, `/tracks`, plus `/proxy` when `proxy: true`. `/proxy` accepts `url`, `h` (base64-JSON headers), and `ct` (Content-Type override — used to force `text/vtt` on VTT subtitles whose CDNs serve `application/octet-stream`). When `proxy: true`, both stream `sourceUrl`s **and** subtitle URLs returned by `/stream` and `/tracks` are rewritten through `/proxy`. `cache?: SdkCache` is an optional `{get,set}` interface (sync or async) that memoizes provider calls by namespaced keys (`search:<id>:<q>`, `content:<id>:<mid>`, `stream:<id>:<uid>:<lang>`, `tracks:<id>:<uid>:<lang>`). `/tracks` returns **501** for providers that don't implement `fetchUnitTracks` — clients should fall back to the `subtitles` field already present on `/stream` responses. The example `examples/server.mjs` wires a `new Map()` as the cache.
 
 ## ESM import convention
 

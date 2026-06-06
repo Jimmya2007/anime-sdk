@@ -42,14 +42,43 @@ interface IMediaSearchResult {
 
 ### `IContentUnit`
 
-Returned by `provider.fetchContentUnits()`. Represents a single episode.
+Returned by `provider.fetchContentUnits()`. Represents a single episode in a unified, language-agnostic list — the caller picks a translation at `resolveStream` time.
 
 ```ts
 interface IContentUnit {
   id: string; // opaque, pass to resolveStream
   title: string;
   number: number; // episode number (may be fractional, e.g. 1.5)
-  language: ContentLanguage; // what was actually resolved
+  availableLanguages: ContentLanguage[]; // e.g. ['sub', 'dub']
+  availableSubtitles?: ISubtitleAvailability[]; // optional, list-time metadata
+  availableQualities?: IVideoPayload['quality'][]; // optional
+}
+```
+
+### `ISubtitleTrack` / `ISubtitleAvailability`
+
+```ts
+interface ISubtitleAvailability {
+  language: string; // BCP-47 (e.g. 'en', 'pt-BR')
+  label: string; // human-readable ('English')
+  format?: 'vtt' | 'srt' | 'ass';
+}
+
+interface ISubtitleTrack extends ISubtitleAvailability {
+  url: string;
+}
+```
+
+`ISubtitleAvailability` is the metadata-only shape used in list contexts; `ISubtitleTrack` adds the URL once resolved.
+
+### `IUnitTracks`
+
+Returned by the optional `provider.fetchUnitTracks()`. Lets a UI introspect tracks without paying the cost of a full stream resolution.
+
+```ts
+interface IUnitTracks {
+  subtitles: ISubtitleTrack[];
+  qualities: IVideoPayload['quality'][];
 }
 ```
 
@@ -64,8 +93,22 @@ interface IVideoPayload {
   quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
   language?: ContentLanguage;
   headers?: Record<string, string>; // forward to fetch/player (Referer, User-Agent)
+  subtitles?: ISubtitleTrack[]; // external VTT tracks when the provider has them
 }
 ```
+
+### `SdkCache`
+
+Minimal pluggable cache contract — bring whatever store you want (`Map`, Redis, SQLite, edge KV). Both methods may be sync or async; the SDK awaits either way.
+
+```ts
+interface SdkCache {
+  get(key: string): unknown | Promise<unknown>;
+  set(key: string, value: unknown): void | Promise<void>;
+}
+```
+
+Keys are namespaced strings produced by `startServer`: `search:<providerId>:<query>`, `content:<providerId>:<mediaId>`, `stream:<providerId>:<unitId>:<lang>`, `tracks:<providerId>:<unitId>:<lang>`. `get` returns `undefined` for a miss; any other value (including `null`) is treated as a hit. Inspect the key prefix in your `set` to apply different TTLs per endpoint or refuse to cache (e.g. `stream:` if your provider hands out signed expiring URLs).
 
 ### `IMangaPayload`
 
@@ -163,15 +206,22 @@ abstract class BaseProvider {
 
   abstract search(query: string): Promise<IMediaSearchResult[]>;
 
-  abstract fetchContentUnits(
-    mediaId:   string,
-    language?: ContentLanguage
-  ): Promise<IContentUnit[]>;
+  // Language-agnostic: returns one unified list. Each unit advertises its
+  // available translations via `availableLanguages`.
+  abstract fetchContentUnits(mediaId: string): Promise<IContentUnit[]>;
 
   abstract resolveStream(
     unitId:    string,
     language?: ContentLanguage
   ): Promise<ResolvedMediaStream>;
+
+  // Optional: list the subtitle/quality tracks for a single unit without
+  // resolving the playable stream. Implement when the provider exposes a
+  // cheap metadata endpoint.
+  fetchUnitTracks?(
+    unitId:    string,
+    language?: ContentLanguage
+  ): Promise<IUnitTracks>;
 }
 ```
 
@@ -396,10 +446,35 @@ interface ServerOptions {
   providers: BaseProvider[];
   port?: number; // default: 3000
   auth?: { token: string };
+  proxy?: boolean; // enable /proxy and rewrite stream + subtitle URLs through it
+  cache?: SdkCache; // memoize /search, /content, /stream, /tracks
 }
 ```
 
-Launches a Node `http.Server`. Returns the server instance so you can call `server.close()`. All requests must be `GET`; all responses are JSON. See [HTTP Server](/docs/http-server/) for route documentation.
+Launches a Node `http.Server`. Returns the server instance so you can call `server.close()`. All requests must be `GET`; all responses are JSON. See [HTTP Server](/docs/http-server/) for route documentation and [Stream Proxy](/docs/proxy/) for the proxy behaviour.
+
+---
+
+## Subtitle utilities
+
+Exported helpers used internally by `AnimeParadiseProvider` and `startServer`; available for custom providers and self-hosted setups.
+
+```ts
+// Normalise an arbitrary array of {src|url, label, type|format} entries into
+// ISubtitleTrack[]. Non-http(s) entries (Drive IDs, etc.) are dropped.
+normalizeSubtitleEntries(entries: unknown): ISubtitleTrack[]
+
+// Wrap a subtitle URL through the SDK's /proxy endpoint. Forces
+// Content-Type: text/vtt on VTT files so browsers parse them correctly.
+proxifySubtitleUrl(
+  proxyBase: string,
+  track:     ISubtitleTrack,
+  options?:  { headers?: Record<string, string>; contentType?: string }
+): string
+
+// BCP-47 inference from a human label (best-effort).
+labelToBcp47(label: string): string
+```
 
 ---
 

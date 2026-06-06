@@ -21,9 +21,11 @@ export * from './providers/BaseProvider.js';
 export * from './providers/GogoanimeProvider.js';
 export * from './providers/GoyabuProvider.js';
 export * from './providers/AllmangaProvider.js';
+export * from './providers/AnimeParadiseProvider.js';
 
 // Utilities
 export * from './utils/crypto.js';
+export * from './utils/subtitles.js';
 
 // HTTP server
 export * from './server/index.js';

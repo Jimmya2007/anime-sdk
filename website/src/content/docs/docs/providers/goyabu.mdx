@@ -37,7 +37,8 @@ const shows = await provider.search('Naruto');
 
 // Episodes
 const eps = await provider.fetchContentUnits(shows[0].id);
-// eps[0] => { id: '/40742', title: 'Episódio 1', number: 1, language: 'sub' }
+// eps[0] => { id: '/40742', title: 'Episódio 1', number: 1,
+//             availableLanguages: ['sub'] }
 
 // Stream
 const result = await provider.resolveStream(eps[0].id);
@@ -51,9 +52,9 @@ if (result.type === 'video') {
 
 ## Language
 
-All content on Goyabu is Brazilian Portuguese (raw audio, no subtitles). Content unit IDs report `language: 'sub'` because that's the `ContentLanguage` type's closest match, but the audio is PT-BR only.
+All content on Goyabu is Brazilian Portuguese (raw audio, no subtitles). Content units report `availableLanguages: ['sub']` because that's the `ContentLanguage` type's closest match, but the audio is PT-BR only.
 
-The `language` parameter on `fetchContentUnits` and `resolveStream` is ignored.
+The `language` parameter on `resolveStream` is ignored.
 
 ## How it works
 

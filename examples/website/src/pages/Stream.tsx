@@ -4,24 +4,60 @@ import { useQuery } from '@tanstack/react-query';
 import Hls from 'hls.js';
 import * as api from '../api';
 
-function Player({ stream }: { stream: api.VideoStream }) {
+function Player({
+  stream,
+  subtitles,
+}: {
+  stream: api.VideoStream;
+  /** Subtitle tracks to render — the caller hands these in so the selector can
+   *  reflect what the SDK actually advertised for this unit (via `/tracks` and
+   *  falling back to `stream.subtitles`). */
+  subtitles: api.SubtitleTrack[];
+}) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playerError, setPlayerError] = useState<string | null>(null);
+  const [hlsSubTracks, setHlsSubTracks] = useState<{ id: number; name: string; lang: string }[]>(
+    [],
+  );
+  // -1 = off; 0..N-1 = external <track>; 1000+i = HLS track i (kept distinct so the
+  // two source sets don't collide).
+  const [activeSub, setActiveSub] = useState<number>(-1);
+  const hlsRef = useRef<Hls | undefined>(undefined);
+  const externalSubs = subtitles;
 
   useEffect(() => {
     const v = ref.current;
     if (!v) return;
     setPlayerError(null);
+    setHlsSubTracks([]);
+    setActiveSub(externalSubs.length > 0 ? 0 : -1);
 
     let hls: Hls | undefined;
     if (stream.isHLS) {
       if (Hls.isSupported()) {
         hls = new Hls({ enableWorker: false });
+        hls.subtitleDisplay = true;
         hls.on(Hls.Events.ERROR, (_, d) => {
           if (d.fatal) setPlayerError(`HLS error: ${d.details}`);
         });
+        hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, (_, d) => {
+          const tracks = (d.subtitleTracks ?? []).map((t: any) => ({
+            id: t.id,
+            name: t.name ?? t.lang ?? `Track ${t.id}`,
+            lang: t.lang ?? '',
+          }));
+          setHlsSubTracks(tracks);
+          // Only auto-enable an HLS track if we don't already have an external one.
+          if (tracks.length > 0 && externalSubs.length === 0) {
+            hls!.subtitleTrack = 0;
+            setActiveSub(1000);
+          } else {
+            hls!.subtitleTrack = -1;
+          }
+        });
         hls.loadSource(stream.sourceUrl);
         hls.attachMedia(v);
+        hlsRef.current = hls;
         v.play().catch(() => {});
       } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
         v.src = stream.sourceUrl;
@@ -36,9 +72,30 @@ function Player({ stream }: { stream: api.VideoStream }) {
 
     return () => {
       hls?.destroy();
+      hlsRef.current = undefined;
       v.src = '';
     };
-  }, [stream.sourceUrl, stream.isHLS]);
+  }, [stream.sourceUrl, stream.isHLS, externalSubs.length]);
+
+  // Apply external-track selection imperatively: <track default> alone doesn't
+  // reliably enable a track across browsers, and toggling needs runtime control.
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    const textTracks = v.textTracks;
+    for (let i = 0; i < textTracks.length; i++) {
+      textTracks[i].mode = activeSub === i ? 'showing' : 'disabled';
+    }
+  }, [activeSub, externalSubs.length]);
+
+  const selectSub = (key: number) => {
+    setActiveSub(key);
+    if (hlsRef.current) {
+      hlsRef.current.subtitleTrack = key >= 1000 ? key - 1000 : -1;
+    }
+  };
+
+  const hasSubtitleUI = hlsSubTracks.length > 0 || externalSubs.length > 0;
 
   if (playerError) {
     return (
@@ -49,7 +106,53 @@ function Player({ stream }: { stream: api.VideoStream }) {
   }
 
   return (
-    <video ref={ref} controls className="aspect-video w-full border border-[#1e1e1e] bg-black" />
+    <div>
+      <video
+        ref={ref}
+        controls
+        crossOrigin="anonymous"
+        className="aspect-video w-full border border-[#1e1e1e] bg-black"
+      >
+        {externalSubs.map((s, i) => (
+          <track
+            key={`${stream.sourceUrl}-${i}`}
+            kind="subtitles"
+            src={s.url}
+            srcLang={s.language}
+            label={s.label}
+          />
+        ))}
+      </video>
+      {hasSubtitleUI && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#1a1a1a] px-1 py-2">
+          <span className="text-xs tracking-widest text-[#999]">SUB</span>
+          <button
+            onClick={() => selectSub(-1)}
+            className={`text-xs transition-colors ${activeSub === -1 ? 'text-white' : 'text-[#444] hover:text-[#888]'}`}
+          >
+            off
+          </button>
+          {externalSubs.map((s, i) => (
+            <button
+              key={`ext-${i}`}
+              onClick={() => selectSub(i)}
+              className={`text-xs transition-colors ${activeSub === i ? 'text-white' : 'text-[#444] hover:text-[#888]'}`}
+            >
+              {s.label}
+            </button>
+          ))}
+          {hlsSubTracks.map((t) => (
+            <button
+              key={`hls-${t.id}`}
+              onClick={() => selectSub(1000 + t.id)}
+              className={`text-xs transition-colors ${activeSub === 1000 + t.id ? 'text-white' : 'text-[#444] hover:text-[#888]'}`}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -59,13 +162,38 @@ export default function Stream() {
 
   const provider = sp.get('provider') || '';
   const unitId = sp.get('uid') || '';
-  const lang = (sp.get('lang') as api.Lang) || 'sub';
   const title = sp.get('title') || '';
   const mediaId = sp.get('mid') || '';
   const epLabel = sp.get('ep') || '';
 
+  // Language lives in component state — never in the URL. The episode list is
+  // language-agnostic; only the playback resolution needs a language pick.
+  const [lang, setLang] = useState<api.Lang>('sub');
   const [activeIdx, setActiveIdx] = useState(0);
   const [showEpisodes, setShowEpisodes] = useState(false);
+
+  // Episode list — language-agnostic, one call. Each episode advertises its
+  // own `availableLanguages`; we use the current episode's list to decide
+  // which LANG buttons make sense.
+  const { data: episodes } = useQuery<api.Episode[]>({
+    queryKey: ['content', provider, mediaId],
+    queryFn: () => api.content(provider, mediaId),
+    enabled: !!(provider && mediaId),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const currentEpNum = epLabel ? parseFloat(epLabel.replace(/^EP\.0*/i, '')) : null;
+  const currentIdx = episodes?.findIndex((e) => e.number === currentEpNum) ?? -1;
+  const currentEpisode = currentIdx >= 0 ? episodes![currentIdx] : null;
+  const availableLangs = currentEpisode?.availableLanguages ?? ['sub'];
+
+  // If our current `lang` isn't one this episode supports, drop to the first
+  // language that *is* supported.
+  useEffect(() => {
+    if (availableLangs.length > 0 && !availableLangs.includes(lang)) {
+      setLang(availableLangs[0]);
+    }
+  }, [availableLangs, lang]);
 
   const { data, isFetching, isError, error } = useQuery<api.ResolvedStream>({
     queryKey: ['stream', provider, unitId, lang],
@@ -73,27 +201,17 @@ export default function Stream() {
     enabled: !!(provider && unitId),
   });
 
-  // Episode list — reuse cache from /episodes if already loaded
-  const { data: episodes } = useQuery<api.Episode[]>({
-    queryKey: ['content', provider, mediaId, lang],
-    queryFn: () => api.content(provider, mediaId, lang),
-    enabled: !!(provider && mediaId),
-    staleTime: 5 * 60 * 1000,
-  });
-
   const streams = data?.type === 'video' ? (data.streams ?? []) : [];
   const active = streams[activeIdx] ?? null;
+  const subtitles = active?.subtitles ?? [];
 
-  // Find current episode index for prev/next
-  const currentEpNum = epLabel ? parseFloat(epLabel.replace(/^EP\.0*/i, '')) : null;
-  const currentIdx = episodes?.findIndex((e) => e.number === currentEpNum) ?? -1;
   const prevEp = currentIdx > 0 ? episodes![currentIdx - 1] : null;
   const nextEp =
     currentIdx >= 0 && currentIdx < (episodes?.length ?? 0) - 1 ? episodes![currentIdx + 1] : null;
 
   const goEpisode = (ep: api.Episode) =>
     navigate(
-      `/stream?provider=${provider}&uid=${encodeURIComponent(ep.id)}&lang=${lang}` +
+      `/stream?provider=${provider}&uid=${encodeURIComponent(ep.id)}` +
         `&title=${encodeURIComponent(title)}&ep=${encodeURIComponent(`EP.${String(ep.number).padStart(3, '0')}`)}&mid=${encodeURIComponent(mediaId)}`,
     );
 
@@ -115,8 +233,28 @@ export default function Stream() {
             <p className="text-xs text-red-900">{String(error)}</p>
           </div>
         )}
-        {active && <Player key={active.sourceUrl} stream={active} />}
+        {active && <Player key={active.sourceUrl} stream={active} subtitles={subtitles} />}
       </div>
+
+      {/* Language toggle — only the translations this specific episode actually
+          has. The episode list is one language-agnostic call; switching here
+          only re-resolves the playback stream, never the episode list. */}
+      {availableLangs.length > 1 && (
+        <div className="flex items-center gap-2 border-t border-[#1a1a1a] px-1 py-2">
+          <span className="text-xs tracking-widest text-[#444]">LANG</span>
+          {availableLangs.map((l) => (
+            <button
+              key={l}
+              onClick={() => setLang(l)}
+              className={`text-xs tracking-widest transition-colors ${
+                lang === l ? 'text-white' : 'text-[#444] hover:text-[#888]'
+              }`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Episode navigation */}
       {episodes && (

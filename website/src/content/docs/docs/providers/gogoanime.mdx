@@ -37,10 +37,10 @@ const shows = await provider.search('One Piece');
 //               thumbnailUrl: 'https://...', catalogType: 'ANIME',
 //               providerId: 'gogoanime' }
 
-// Episodes — language param is ignored (sub only)
+// Episodes — language-agnostic; gogoanime is sub only.
 const eps = await provider.fetchContentUnits(shows[0].id);
 // eps[0] => { id: '/watch/one-piece/ep-1', title: 'Episode 1 - I'm Luffy!',
-//             number: 1, language: 'sub' }
+//             number: 1, availableLanguages: ['sub'] }
 
 // Stream
 const result = await provider.resolveStream(eps[0].id);
@@ -60,7 +60,7 @@ if (result.type === 'video') {
 | `'dub'`  | Falls back to `'sub'` |
 | `'raw'`  | Falls back to `'sub'` |
 
-The language parameter to `fetchContentUnits` and `resolveStream` is accepted but ignored. All content units report `language: 'sub'`.
+The language parameter to `resolveStream` is accepted but ignored. All content units report `availableLanguages: ['sub']`.
 
 ## ID formats
 

@@ -5,6 +5,7 @@ import {
   ResolvedMediaStream,
   MediaCatalogType,
   ContentLanguage,
+  IUnitTracks,
 } from '../types/index.js';
 
 export abstract class BaseProvider {
@@ -17,11 +18,11 @@ export abstract class BaseProvider {
 
   /**
    * Fetch available content units (episodes/chapters) for the given media ID.
-   * @param mediaId - Provider-specific media identifier
-   * @param language - Preferred translation type. Providers that support sub/dub
-   *   will return units for that language track. Falls back to 'sub' if omitted.
+   * Returns a unified list across all translations — each unit advertises which
+   * languages it can be played in via {@link IContentUnit.availableLanguages}.
+   * Callers pick the translation when calling `resolveStream`.
    */
-  abstract fetchContentUnits(mediaId: string, language?: ContentLanguage): Promise<IContentUnit[]>;
+  abstract fetchContentUnits(mediaId: string): Promise<IContentUnit[]>;
 
   /**
    * Resolve a playback stream for the given content unit ID.
@@ -29,4 +30,15 @@ export abstract class BaseProvider {
    * @param language - Preferred translation type for stream resolution.
    */
   abstract resolveStream(unitId: string, language?: ContentLanguage): Promise<ResolvedMediaStream>;
+
+  /**
+   * Optional: list the subtitle/quality tracks available for a single unit
+   * without resolving the playable stream. Implement when the provider can
+   * expose this cheaper than `resolveStream` (e.g. a metadata endpoint that
+   * skips the slow video-source extraction).
+   *
+   * Consumers building a UI can call this to populate a subtitle selector
+   * before the user commits to playback.
+   */
+  fetchUnitTracks?(unitId: string, language?: ContentLanguage): Promise<IUnitTracks>;
 }

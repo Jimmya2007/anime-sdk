@@ -9,17 +9,16 @@ export default function Episodes() {
   const provider = sp.get('provider') || '';
   const mediaId = sp.get('mid') || '';
   const title = sp.get('title') || mediaId;
-  const lang = (sp.get('lang') as api.Lang) || 'sub';
 
   const { data, isFetching, isError, error } = useQuery<api.Episode[]>({
-    queryKey: ['content', provider, mediaId, lang],
-    queryFn: () => api.content(provider, mediaId, lang),
+    queryKey: ['content', provider, mediaId],
+    queryFn: () => api.content(provider, mediaId),
     enabled: !!(provider && mediaId),
   });
 
   const goStream = (ep: api.Episode) =>
     navigate(
-      `/stream?provider=${provider}&uid=${encodeURIComponent(ep.id)}&lang=${lang}` +
+      `/stream?provider=${provider}&uid=${encodeURIComponent(ep.id)}` +
         `&title=${encodeURIComponent(title)}&ep=${encodeURIComponent(`EP.${String(ep.number).padStart(3, '0')}`)}&mid=${encodeURIComponent(mediaId)}`,
     );
 
@@ -39,15 +38,22 @@ export default function Episodes() {
             <button
               key={ep.id}
               onClick={() => goStream(ep)}
-              className="group flex w-full items-center justify-between border-b border-[#141414] px-2 py-2.5 text-left transition-colors hover:bg-[#111]"
+              className="group flex w-full items-center justify-between gap-4 border-b border-[#141414] px-2 py-2.5 text-left transition-colors hover:bg-[#111]"
             >
-              <span className="mr-4 shrink-0 text-[#555]">
-                EP.{String(ep.number).padStart(3, '0')}
-              </span>
+              <span className="shrink-0 text-[#555]">EP.{String(ep.number).padStart(3, '0')}</span>
               <span className="flex-1 truncate text-[#aaa] transition-colors group-hover:text-white">
                 {ep.title}
               </span>
-              <span className="ml-4 shrink-0 text-xs text-[#333]">{ep.language}</span>
+              <span className="flex shrink-0 gap-1">
+                {ep.availableLanguages?.map((l) => (
+                  <span
+                    key={l}
+                    className="border border-[#222] px-1.5 py-0.5 text-[10px] tracking-widest text-[#555]"
+                  >
+                    {l}
+                  </span>
+                ))}
+              </span>
             </button>
           ))}
         </div>

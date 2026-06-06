@@ -21,10 +21,11 @@ startServer({
 });
 ```
 
-That's it. Two things happen automatically:
+That's it. Three things happen automatically:
 
 1. A `/proxy` endpoint becomes active.
 2. Every `sourceUrl` in `/stream` responses is rewritten to go through `/proxy`, with the required headers encoded in the URL. Your frontend uses `sourceUrl` as-is — no header forwarding needed.
+3. Every subtitle `url` returned in `/stream` or `/tracks` responses is rewritten through `/proxy` too, with a `ct=text/vtt` hint so the proxy forces the right `Content-Type` even when the upstream CDN serves `application/octet-stream`.
 
 ## How stream URLs are rewritten
 
@@ -53,21 +54,36 @@ The `h` param is the base64-encoded JSON of the original headers object. The pro
 ## The `/proxy` endpoint
 
 ```
-GET /proxy?url=<encoded-url>[&h=<base64-headers>]
+GET /proxy?url=<encoded-url>[&h=<base64-headers>][&ct=<content-type>]
 ```
 
-| Param | Required | Description                                                |
-| ----- | -------- | ---------------------------------------------------------- |
-| `url` | ✓        | URL-encoded target URL to fetch                            |
-| `h`   |          | Base64-encoded JSON of request headers to forward upstream |
+| Param | Required | Description                                                             |
+| ----- | -------- | ----------------------------------------------------------------------- |
+| `url` | ✓        | URL-encoded target URL to fetch                                         |
+| `h`   |          | Base64-encoded JSON of request headers to forward upstream              |
+| `ct`  |          | Override the response `Content-Type` (used for `text/vtt` on subtitles) |
 
-The response includes `Access-Control-Allow-Origin: *` and passes through the upstream `Content-Type` and body.
+The response includes `Access-Control-Allow-Origin: *` and passes through the upstream body. The `Content-Type` is the upstream value unless `ct` is set (or the proxy detects an HLS manifest, in which case it serves `application/vnd.apple.mpegurl`).
 
 ### HLS manifest rewriting
 
 When the upstream response is an HLS manifest (`.m3u8` or `Content-Type: application/vnd.apple.mpegurl`), the proxy rewrites every URI in it — segment URLs, sub-playlist URLs, `#EXT-X-KEY` encryption key URLs, `#EXT-X-MAP` initialization URIs — to also go through `/proxy`. The `h` param is preserved on every rewritten URI, so the full header chain propagates automatically.
 
 This means an HLS player (e.g. [hls.js](https://github.com/video-dev/hls.js)) only needs to load the proxy URL for the master playlist. All subsequent requests are handled transparently.
+
+### Subtitle proxying
+
+Subtitle URLs returned in `IVideoPayload.subtitles` and `IUnitTracks.subtitles` are rewritten the same way, with `ct=text/vtt` appended for VTT tracks. That ensures the browser parses the response as WebVTT even when the upstream CDN claims `application/octet-stream` (common with anizara/megastatics/etc.). Hand the rewritten URL straight to a `<track>` element — no `crossorigin` shenanigans needed beyond setting `crossOrigin="anonymous"` on the `<video>`:
+
+```tsx
+<video crossOrigin="anonymous" controls>
+  {stream.subtitles?.map((t) => (
+    <track key={t.url} kind="subtitles" src={t.url} srcLang={t.language} label={t.label} />
+  ))}
+</video>
+```
+
+If you're constructing subtitle URLs by hand outside of `startServer`, the SDK exports `proxifySubtitleUrl(proxyBase, track, opts?)` that does this encoding for you.
 
 ## Playing streams in the browser
 
@@ -106,7 +122,7 @@ Access-Control-Allow-Methods: GET, OPTIONS
 Access-Control-Allow-Headers: *
 ```
 
-All other API routes (`/search`, `/content`, `/stream`) also include these headers, so you can call the server directly from any browser origin without a reverse proxy in front.
+All other API routes (`/search`, `/content`, `/stream`, `/tracks`) also include these headers, so you can call the server directly from any browser origin without a reverse proxy in front.
 
 <Aside type="caution">
   The proxy will forward any URL with any headers to the upstream server. It is intended for local
