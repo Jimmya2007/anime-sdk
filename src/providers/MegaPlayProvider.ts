@@ -97,6 +97,7 @@ export class MegaPlayProvider extends BaseProvider {
         id: `${mediaId}:${i}`,
         title: `Episode ${i}`,
         number: i,
+        availableLanguages: ['sub', 'dub'],
       });
     }
 
