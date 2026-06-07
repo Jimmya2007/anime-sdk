@@ -36,10 +36,14 @@ export interface FlareSolverrResponse {
   text(): string;
   /** Parse response as JSON */
   json(): any;
-  /** Response headers */
+  /** Response headers from the target site */
   headers: Record<string, string>;
   /** Final URL after redirects */
   url: string;
+  /** The User-Agent used by FlareSolverr to solve the challenge */
+  userAgent: string;
+  /** Cookies obtained by FlareSolverr during the session */
+  cookies: Array<{ name: string; value: string; domain?: string; path?: string }>;
 }
 
 interface FlareSolverrResult {
@@ -187,6 +191,8 @@ export class FlareSolverrClient {
       status: sol.status,
       url: sol.url,
       headers: sol.headers,
+      userAgent: sol.userAgent,
+      cookies: sol.cookies,
       text: () => responseText,
       json: () => {
         try {

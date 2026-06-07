@@ -40,13 +40,18 @@ npm run build      # tsc → dist/
 | CLI wrappers or download scripts | Use the HTTP server or import the SDK directly                                                         |
 | Mocked E2E tests                 | All E2E tests must hit live sites — a mock that passes while the real site fails is worse than no test |
 
-## Adding a provider — quick steps
+## Adding a provider — complete steps
 
-1. Extend `BaseProvider` in `src/providers/MyProvider.ts`, set `id` and `supportedTypes`, accept `HttpClient` in the constructor.
-2. Implement `search`, `fetchContentUnits`, `resolveStream`. Use `DomRegistry.parse(html)` for HTML, compose existing extractors where possible.
-3. All imports in `src/` must use the `.js` extension (`import { X } from './foo.js'`).
-4. Re-export from `src/index.ts`.
-5. Add a live E2E test in `tests/e2e/myprovider.test.ts` — searches a popular title, resolves a stream, calls `captureStreamScreenshot`. No mocking. 90-second timeout.
+A new provider is only complete when it is integrated across the whole ecosystem. Follow this checklist:
+
+1. **Implement**: Extend `BaseProvider` in `src/providers/MyProvider.ts`. Use `DomRegistry.parse(html)` for parsing and compose existing extractors where possible.
+2. **Standardize**: Ensure imports use `.js` extensions and re-export the provider from `src/index.ts`.
+3. **Test**: Add a live E2E test in `tests/e2e/myprovider.test.ts`. It must search, resolve a stream, and call `captureStreamScreenshot`.
+4. **Example Server**: Add your provider to the `providers` array in `examples/server.mjs`.
+5. **Example Website**: Add your provider ID to the `PROVIDERS` array in `examples/website/src/pages/Search.tsx`.
+6. **Documentation**:
+   - Create a new MDX file in `website/src/content/docs/docs/providers/myprovider.mdx`.
+   - Update the providers list in `website/src/content/docs/docs/providers/index.mdx`.
 
 See the [full contributing guide](https://hexxt-git.github.io/ani-sdk/docs/contributing/) for annotated code examples, the extractor guide, and the CF-protected site pattern.
 

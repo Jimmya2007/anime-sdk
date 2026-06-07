@@ -7,17 +7,17 @@ A provider is a site-specific adapter that maps search queries and episode/chapt
 
 ## Available providers
 
-| ID              | Class                   | Domain            | Content Type | Languages     | Subtitles | Method            |
-| --------------- | ----------------------- | ----------------- | ------------ | ------------- | --------- | ----------------- |
-| `animeparadise` | `AnimeParadiseProvider` | animeparadise.moe | ANIME        | sub           | yes (VTT) | REST API          |
-| `allmanga`      | `AllmangaProvider`      | allmanga.to       | ANIME        | sub, dub, raw | no        | GraphQL + AES-CTR |
-| `gogoanime`     | `GogoanimeProvider`     | anineko.to        | ANIME        | sub           | no        | HTML scrape + HLS |
-| `anikoto`       | `AnikotoProvider`       | anikototv.to      | ANIME        | sub, dub      | yes (VTT) | JSON API + Embed  |
-| `megaplay`      | `MegaPlayProvider`      | megaplay.buzz     | ANIME        | sub, dub      | yes (VTT) | AniList + mapping |
-| `goyabu`        | `GoyabuProvider`        | goyabu.io         | ANIME        | raw (pt-br)   | no        | batchexecute RPC  |
-| `mangadex`      | `MangadexProvider`      | mangadex.org      | MANGA        | sub           | no        | JSON API          |
-| `weebcentral`   | `WeebcentralProvider`   | weebcentral.com   | MANGA        | sub           | no        | HTML scrape       |
-| `mangapill`     | `MangapillProvider`     | mangapill.com     | MANGA        | sub           | no        | HTML scrape       |
+| ID            | Website           | Content Type | Languages     | Subtitles | Method            |
+| ------------- | ----------------- | ------------ | ------------- | --------- | ----------------- |
+| animeparadise | animeparadise.moe | ANIME        | sub           | yes (VTT) | REST API          |
+| allmanga      | allmanga.to       | ANIME        | sub, dub, raw | no        | GraphQL + AES-CTR |
+| gogoanime     | anineko.to        | ANIME        | sub           | no        | HTML scrape + HLS |
+| anikoto       | anikototv.to      | ANIME        | sub, dub      | yes (VTT) | JSON API + Embed  |
+| megaplay      | megaplay.buzz     | ANIME        | sub, dub      | yes (VTT) | AniList + mapping |
+| goyabu        | goyabu.io         | ANIME        | raw (pt-br)   | no        | batchexecute RPC  |
+| mangadex      | mangadex.org      | MANGA        | sub           | no        | JSON API          |
+| weebcentral   | weebcentral.com   | MANGA        | sub           | no        | HTML scrape       |
+| mangapill     | mangapill.com     | MANGA        | sub           | no        | HTML scrape       |
 
 All extend `BaseProvider` and expose identical method signatures. `AnimeParadiseProvider` additionally implements the optional `fetchUnitTracks` for cheap subtitle/quality metadata.
 

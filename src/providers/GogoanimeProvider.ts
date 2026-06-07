@@ -131,7 +131,7 @@ export class GogoanimeProvider extends BaseProvider {
         id,
         title: displayTitle,
         number,
-        availableLanguages: ['sub'],
+        availableLanguages: [mediaId.toLowerCase().includes('-dub') ? 'dub' : 'sub'],
       });
     }
 

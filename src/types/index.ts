@@ -25,9 +25,10 @@ export interface IContentUnit {
   /**
    * Translation types this unit can be played in. Providers return a single
    * unified episode list — callers pick which translation to resolve at
-   * `resolveStream` time.
+   * `resolveStream` time. Omitted if the provider cannot guarantee availability
+   * ahead of time.
    */
-  availableLanguages: ContentLanguage[];
+  availableLanguages?: ContentLanguage[];
   /**
    * Subtitle tracks known to be available for this unit, when the provider
    * exposes that at episode-list time. Each entry carries the same shape as

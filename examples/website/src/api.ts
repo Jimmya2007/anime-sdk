@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 const API = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
 const get = (path: string, params: Record<string, string>) =>

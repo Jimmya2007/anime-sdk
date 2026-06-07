@@ -145,7 +145,7 @@ export class GoyabuProvider extends BaseProvider {
               id: link,
               title: ep.episode_name ? `Episódio ${num}: ${ep.episode_name}` : `Episódio ${num}`,
               number: num,
-              availableLanguages: ['sub'],
+              availableLanguages: [mediaId.toLowerCase().includes('dublado') ? 'dub' : 'sub'],
             });
           }
           foundArray = true;
@@ -176,7 +176,7 @@ export class GoyabuProvider extends BaseProvider {
           id,
           title: `Episódio ${num}`,
           number: num,
-          availableLanguages: ['sub'],
+          availableLanguages: [mediaId.toLowerCase().includes('dublado') ? 'dub' : 'sub'],
         });
       }
     }

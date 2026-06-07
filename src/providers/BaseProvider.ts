@@ -18,9 +18,9 @@ export abstract class BaseProvider {
 
   /**
    * Fetch available content units (episodes/chapters) for the given media ID.
-   * Returns a unified list across all translations — each unit advertises which
-   * languages it can be played in via {@link IContentUnit.availableLanguages}.
-   * Callers pick the translation when calling `resolveStream`.
+   * Returns a unified list across all translations. Units may advertise which
+   * languages they can be played in via {@link IContentUnit.availableLanguages},
+   * if known ahead of time. Callers pick the translation when calling `resolveStream`.
    */
   abstract fetchContentUnits(mediaId: string): Promise<IContentUnit[]>;
 

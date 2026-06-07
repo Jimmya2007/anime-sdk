@@ -4,13 +4,13 @@ import { useQuery } from '@tanstack/react-query';
 import * as api from '../api';
 
 const PROVIDERS = [
-  'animeparadise',
+  'megaplay',
   'allmanga',
+  'animeparadise',
+  'anikoto',
   'gogoanime',
   'goyabu',
   'mangadex',
-  'anikoto',
-  'megaplay',
   'weebcentral',
   'mangapill',
 ];
@@ -54,14 +54,16 @@ export default function Search() {
 
   return (
     <div className="px-4">
-      <div className="mt-5 mb-4 flex gap-1">
+      <div className="mt-5 mb-4 flex flex-wrap gap-1.5">
         {PROVIDERS.map((p) => (
           <button
             key={p}
             onClick={() => setProvider(p)}
-            className={`border px-3 py-1 text-xs transition-colors ${p === provider ? 'border-[#555] text-white' : 'border-[#222] text-[#555] hover:border-[#3a3a3a] hover:text-[#888]'}`}
+            className={`border px-3 py-1.5 text-[10px] tracking-widest uppercase transition-colors ${p === provider ? 'border-[#555] bg-[#111] text-white' : 'border-[#222] text-[#444] hover:border-[#3a3a3a] hover:text-[#777]'}`}
           >
+            {p === 'megaplay' ? '⛤ ' : ''}
             {p}
+            {p === 'megaplay' ? ' ⛤' : ''}
           </button>
         ))}
       </div>

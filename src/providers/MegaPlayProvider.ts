@@ -69,7 +69,6 @@ export class MegaPlayProvider extends BaseProvider {
         thumbnailUrl: media.coverImage.large,
         catalogType: 'ANIME',
         providerId: this.id,
-        availableLanguages: ['sub', 'dub'],
       }),
     );
   }
@@ -98,7 +97,6 @@ export class MegaPlayProvider extends BaseProvider {
         id: `${mediaId}:${i}`,
         title: `Episode ${i}`,
         number: i,
-        availableLanguages: ['sub', 'dub'],
       });
     }
 

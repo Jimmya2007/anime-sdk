@@ -132,3 +132,11 @@ header .header {
   background-color: rgba(139, 92, 246, 0.12) !important;
   color: #a78bfa !important;
 }
+
+/* Ensure tables can scroll horizontally */
+.sl-markdown-content table {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}

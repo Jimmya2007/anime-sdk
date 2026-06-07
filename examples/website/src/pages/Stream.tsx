@@ -7,12 +7,14 @@ import * as api from '../api';
 function Player({
   stream,
   subtitles,
+  langUI,
 }: {
   stream: api.VideoStream;
   /** Subtitle tracks to render — the caller hands these in so the selector can
    *  reflect what the SDK actually advertised for this unit (via `/tracks` and
    *  falling back to `stream.subtitles`). */
   subtitles: api.SubtitleTrack[];
+  langUI?: React.ReactNode;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playerError, setPlayerError] = useState<string | null>(null);
@@ -111,7 +113,7 @@ function Player({
         ref={ref}
         controls
         crossOrigin="anonymous"
-        className="aspect-video w-full border border-[#1e1e1e] bg-black"
+        className="mb-4 aspect-video w-full border border-[#1e1e1e] bg-black"
       >
         {externalSubs.map((s, i) => (
           <track
@@ -123,33 +125,29 @@ function Player({
           />
         ))}
       </video>
+      {langUI}
       {hasSubtitleUI && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-[#1a1a1a] px-1 py-2">
-          <span className="text-xs tracking-widest text-[#999]">SUB</span>
-          <button
-            onClick={() => selectSub(-1)}
-            className={`text-xs transition-colors ${activeSub === -1 ? 'text-white' : 'text-[#444] hover:text-[#888]'}`}
+        <div className="flex items-center gap-2 border-t border-[#1a1a1a] px-1 py-2">
+          <span className="text-xs tracking-widest text-[#444]">SUB</span>
+          <select
+            value={activeSub}
+            onChange={(e) => selectSub(Number(e.target.value))}
+            className="cursor-pointer bg-transparent text-xs text-white outline-none"
           >
-            off
-          </button>
-          {externalSubs.map((s, i) => (
-            <button
-              key={`ext-${i}`}
-              onClick={() => selectSub(i)}
-              className={`text-xs transition-colors ${activeSub === i ? 'text-white' : 'text-[#444] hover:text-[#888]'}`}
-            >
-              {s.label}
-            </button>
-          ))}
-          {hlsSubTracks.map((t) => (
-            <button
-              key={`hls-${t.id}`}
-              onClick={() => selectSub(1000 + t.id)}
-              className={`text-xs transition-colors ${activeSub === 1000 + t.id ? 'text-white' : 'text-[#444] hover:text-[#888]'}`}
-            >
-              {t.name}
-            </button>
-          ))}
+            <option value={-1} className="bg-[#0f0f0f]">
+              off
+            </option>
+            {externalSubs.map((s, i) => (
+              <option key={`ext-${i}`} value={i} className="bg-[#0f0f0f]">
+                {s.label}
+              </option>
+            ))}
+            {hlsSubTracks.map((t) => (
+              <option key={`hls-${t.id}`} value={1000 + t.id} className="bg-[#0f0f0f]">
+                {t.name}
+              </option>
+            ))}
+          </select>
         </div>
       )}
     </div>
@@ -158,7 +156,7 @@ function Player({
 
 function MangaReader({ pages }: { pages: api.MangaStream }) {
   return (
-    <div className="flex flex-col items-center gap-4 bg-black">
+    <div className="mb-4 flex flex-col items-center gap-4 bg-black">
       {pages.imageUrls.map((url, i) => (
         <img
           key={i}
@@ -243,7 +241,7 @@ export default function Stream() {
 
   return (
     <div className="px-4">
-      <div className="mt-5 mb-5">
+      <div className="mt-5">
         {isFetching && (
           <div className="flex aspect-video items-center justify-center border border-[#1e1e1e] bg-[#0d0d0d]">
             <p className="text-xs tracking-widest text-[#333]">
@@ -257,30 +255,52 @@ export default function Stream() {
           </div>
         )}
         {data?.type === 'video' && active && (
-          <Player key={active.sourceUrl} stream={active} subtitles={subtitles} />
+          <Player
+            key={active.sourceUrl}
+            stream={active}
+            subtitles={subtitles}
+            langUI={
+              availableLangs.length > 1 && (
+                <div className="flex items-center gap-2 border-t border-[#1a1a1a] px-1 py-2">
+                  <span className="text-xs tracking-widest text-[#444]">LANG</span>
+                  {availableLangs.map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(l)}
+                      className={`text-xs tracking-widest uppercase transition-colors ${
+                        lang === l ? 'text-white' : 'text-[#444] hover:text-[#888]'
+                      }`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              )
+            }
+          />
         )}
-        {data?.type === 'manga' && data.pages && <MangaReader pages={data.pages} />}
+        {data?.type === 'manga' && data.pages && (
+          <>
+            <MangaReader pages={data.pages} />
+            {availableLangs.length > 1 && (
+              <div className="flex items-center gap-2 border-t border-[#1a1a1a] px-1 py-2">
+                <span className="text-xs tracking-widest text-[#444]">LANG</span>
+                {availableLangs.map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLang(l)}
+                    className={`text-xs tracking-widest uppercase transition-colors ${
+                      lang === l ? 'text-white' : 'text-[#444] hover:text-[#888]'
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
-
-      {/* Language toggle — only the translations this specific episode actually
-          has. The episode list is one language-agnostic call; switching here
-          only re-resolves the playback stream, never the episode list. */}
-      {availableLangs.length > 1 && (
-        <div className="flex items-center gap-2 border-t border-[#1a1a1a] px-1 py-2">
-          <span className="text-xs tracking-widest text-[#444]">LANG</span>
-          {availableLangs.map((l) => (
-            <button
-              key={l}
-              onClick={() => setLang(l)}
-              className={`text-xs tracking-widest transition-colors ${
-                lang === l ? 'text-white' : 'text-[#444] hover:text-[#888]'
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Episode navigation */}
       {episodes && (
@@ -345,30 +365,46 @@ export default function Stream() {
           <div className="px-1 py-2 text-xs tracking-widest text-[#444]">
             SOURCES <span className="text-[#333]">({streams.length})</span>
           </div>
-          {streams.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveIdx(i)}
-              className={`group flex w-full items-start gap-3 border-b border-[#141414] px-2 py-3 text-left transition-colors hover:bg-[#111] ${i === activeIdx ? 'bg-[#0f0f0f]' : ''}`}
-            >
-              <span
-                className={`mt-0.5 shrink-0 text-xs ${i === activeIdx ? 'text-white' : 'text-[#333]'}`}
+          {streams.map((s, i) => {
+            let displayUrl = s.sourceUrl;
+            try {
+              const u = new URL(s.sourceUrl);
+              if (u.pathname === '/proxy' && u.searchParams.has('url')) {
+                const targetUrl = new URL(u.searchParams.get('url')!);
+                displayUrl = targetUrl.hostname;
+              } else {
+                displayUrl = u.hostname;
+              }
+            } catch {}
+
+            return (
+              <button
+                key={i}
+                onClick={() => setActiveIdx(i)}
+                className={`group flex w-full items-start gap-3 border-b border-[#141414] px-2 py-3 text-left transition-colors hover:bg-[#111] ${i === activeIdx ? 'bg-[#0f0f0f]' : ''}`}
               >
-                {i === activeIdx ? '●' : '○'}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="mb-1 text-xs text-[#555]">
-                  [{s.isHLS ? 'HLS' : 'MP4'}] {s.quality}
-                  {s.language ? `  ${s.language}` : ''}
-                </div>
-                <div
-                  className={`text-xs leading-relaxed break-all ${i === activeIdx ? 'text-[#4a9eff]' : 'text-[#333] group-hover:text-[#555]'}`}
+                <span
+                  className={`mt-0.5 shrink-0 text-xs ${i === activeIdx ? 'text-white' : 'text-[#333]'}`}
                 >
-                  {s.sourceUrl}
+                  {i === activeIdx ? '●' : '○'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 text-xs text-[#ccc]">
+                    Server {i + 1}
+                    <span className="ml-2 text-[#666]">
+                      [{s.isHLS ? 'HLS' : 'MP4'}] {s.quality}
+                      {s.language ? `  ${s.language}` : ''}
+                    </span>
+                  </div>
+                  <div
+                    className={`truncate text-xs ${i === activeIdx ? 'text-[#4a9eff]' : 'text-[#444] group-hover:text-[#666]'}`}
+                  >
+                    {displayUrl}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

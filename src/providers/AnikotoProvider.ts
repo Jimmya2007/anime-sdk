@@ -50,7 +50,6 @@ export class AnikotoProvider extends BaseProvider {
           thumbnailUrl: item.querySelector('img')?.getAttribute('src') || undefined,
           catalogType: 'ANIME',
           providerId: this.id,
-          availableLanguages: ['sub', 'dub'],
         };
       })
       .filter((res) => res.id !== '');
