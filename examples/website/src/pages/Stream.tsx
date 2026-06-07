@@ -201,7 +201,7 @@ export default function Stream() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const currentEpNum = epLabel ? parseFloat(epLabel.replace(/^[A-Z]+\.0*/i, '')) : null;
+  const currentEpNum = epLabel ? parseFloat(epLabel.replace(/^[A-Z]+\./i, '')) : null;
   const currentIdx = episodes?.findIndex((e) => e.number === currentEpNum) ?? -1;
   const currentEpisode = currentIdx >= 0 ? episodes![currentIdx] : null;
   const availableLangs = currentEpisode?.availableLanguages ?? ['sub'];
