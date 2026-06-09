@@ -17,7 +17,7 @@ async function pick(items, label) {
   return n;
 }
 
-console.log('\n═══ ANI-SDK CLI ═══\n');
+console.log('\n═══ anime-sdk CLI ═══\n');
 
 const pi = await pick(
   PROVIDERS.map((p) => p.id),

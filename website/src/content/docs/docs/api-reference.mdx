@@ -1,6 +1,6 @@
 ---
 title: API Reference
-description: Complete type and interface documentation for ani-sdk.
+description: Complete type and interface documentation for anime-sdk.
 ---
 
 ## Types
@@ -348,7 +348,7 @@ Global singleton parser used by all providers that scrape HTML. The default is `
 **Custom parser:**
 
 ```ts
-import { DomRegistry, IDomParser, IDomElement } from 'ani-sdk';
+import { DomRegistry, IDomParser, IDomElement } from 'anime-sdk';
 
 class MyParser implements IDomParser {
   parse(html: string): IDomElement {

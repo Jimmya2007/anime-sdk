@@ -1,6 +1,6 @@
 ---
 title: Downloads
-description: Save anime episodes as MP4 and manga chapters as ZIP archives using ani-sdk's built-in download utilities.
+description: Save anime episodes as MP4 and manga chapters as ZIP archives using anime-sdk's built-in download utilities.
 ---
 
 The SDK ships built-in download utilities for both anime and manga. No extra dependencies beyond `ffmpeg` on your `PATH` (anime only).
@@ -13,7 +13,7 @@ The SDK ships built-in download utilities for both anime and manga. No extra dep
 - **Direct MP4 streams**: downloaded via `fetch` streaming directly to disk.
 
 ```ts
-import { HttpClient, AllmangaProvider, downloadVideo } from 'ani-sdk';
+import { HttpClient, AllmangaProvider, downloadVideo } from 'anime-sdk';
 
 const client = new HttpClient();
 const provider = new AllmangaProvider(client);
@@ -76,7 +76,7 @@ Phases in order:
 ## Manga: single page
 
 ```ts
-import { MangadexProvider, HttpClient, downloadMangaPage } from 'ani-sdk';
+import { MangadexProvider, HttpClient, downloadMangaPage } from 'anime-sdk';
 
 const client = new HttpClient();
 const provider = new MangadexProvider(client);
@@ -101,7 +101,7 @@ The filename is `page_<NNN><ext>` where `<ext>` is inferred from the `Content-Ty
 ## Manga: full chapter as ZIP
 
 ```ts
-import { MangadexProvider, HttpClient, downloadMangaChapter } from 'ani-sdk';
+import { MangadexProvider, HttpClient, downloadMangaChapter } from 'anime-sdk';
 
 const client = new HttpClient();
 const provider = new MangadexProvider(client);

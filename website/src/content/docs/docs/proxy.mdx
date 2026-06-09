@@ -12,7 +12,7 @@ Most streaming servers block cross-origin requests and require custom `Referer` 
 Pass `proxy: true` to `startServer`:
 
 ```ts
-import { HttpClient, GogoanimeProvider, startServer } from 'ani-sdk';
+import { HttpClient, GogoanimeProvider, startServer } from 'anime-sdk';
 
 startServer({
   providers: [new GogoanimeProvider(new HttpClient())],

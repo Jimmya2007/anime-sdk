@@ -1,4 +1,4 @@
-# ani-sdk
+# anime-sdk
 
 A small Typescript SDK for searching anime and manga, listing episodes/chapters, and resolving direct stream/page URLs (with subtitle tracks). Nine providers, a handful of reusable embed extractors, a pluggable HTTP transport, and an optional HTTP server with a stream/subtitle proxy and a bring-your-own cache hook.
 
@@ -57,7 +57,7 @@ cheaply (no full stream resolution). Extractors are stateless and take a
 ## Usage
 
 ```ts
-import { HttpClient, AllmangaProvider, MangadexProvider } from 'ani-sdk';
+import { HttpClient, AllmangaProvider, MangadexProvider } from 'anime-sdk';
 
 const http = new HttpClient({ timeoutMs: 25_000 });
 
@@ -81,7 +81,7 @@ if (pages.type === 'manga') {
 ### HTTP server with proxy + cache
 
 ```ts
-import { HttpClient, startServer, AllmangaProvider, MangadexProvider } from 'ani-sdk';
+import { HttpClient, startServer, AllmangaProvider, MangadexProvider } from 'anime-sdk';
 
 const store = new Map(); // satisfies the SdkCache get/set contract
 const cache = {
@@ -111,7 +111,7 @@ they'll return a list of `IVideoPayload` (or an empty array if they can't
 recover a direct stream).
 
 ```ts
-import { HttpClient, BloggerExtractor } from 'ani-sdk';
+import { HttpClient, BloggerExtractor } from 'anime-sdk';
 
 const blogger = new BloggerExtractor(new HttpClient());
 const streams = await blogger.extract('https://www.blogger.com/video.g?token=AD6v5dw…');
@@ -158,4 +158,4 @@ MIT
 
 ## DMCA
 
-ani-sdk does not host, store, or distribute any media content. It resolves publicly accessible URLs served by third-party sites. For copyright concerns about content on those sites, contact them directly. To report infringement in the SDK code or this repository, open an issue tagged `legal`.
+anime-sdk does not host, store, or distribute any media content. It resolves publicly accessible URLs served by third-party sites. For copyright concerns about content on those sites, contact them directly. To report infringement in the SDK code or this repository, open an issue tagged `legal`.

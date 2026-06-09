@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 const CODE_LINES: string[] = [
-  `<span class="kw">import</span> <span class="pun">{</span> <span class="typ">HttpClient</span><span class="pun">,</span> <span class="typ">AllmangaProvider</span> <span class="pun">}</span> <span class="kw">from</span> <span class="str">'ani-sdk'</span><span class="pun">;</span>`,
+  `<span class="kw">import</span> <span class="pun">{</span> <span class="typ">HttpClient</span><span class="pun">,</span> <span class="typ">AllmangaProvider</span> <span class="pun">}</span> <span class="kw">from</span> <span class="str">'anime-sdk'</span><span class="pun">;</span>`,
   ``,
   `<span class="kw">const</span> provider <span class="pun">=</span> <span class="kw">new</span> <span class="fn">AllmangaProvider</span><span class="pun">(</span><span class="kw">new</span> <span class="fn">HttpClient</span><span class="pun">({</span> timeoutMs<span class="pun">:</span> <span class="num">25_000</span> <span class="pun">}));</span>`,
   ``,
@@ -115,7 +115,7 @@ export default function CodeEditorScene() {
             fontFamily: '"JetBrains Mono", monospace',
           }}
         >
-          TypeScript / ani-sdk
+          TypeScript / anime-sdk
         </span>
       </div>
       <div

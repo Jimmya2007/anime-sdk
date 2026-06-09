@@ -39,8 +39,8 @@ Edge cases in `HlsUtils.rewriteManifest`, extractor HTML fixtures, language infe
 | Area                                 | Why                                                                                                                                                                                                                                             |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Browser / frontend support**       | The SDK depends on `child_process` (curl fallback), Node-specific `crypto.subtle` usage, and shell-out for E2E tests. Browser support would require a fundamentally different transport layer and likely wouldn't work due to CORS constraints. |
-| **UI components or players**         | ani-sdk is a headless library. Rendering is out of scope.                                                                                                                                                                                       |
-| **Login-gated or paywall sites**     | ani-sdk is for publicly accessible streams. Sites that require accounts are out of scope.                                                                                                                                                       |
+| **UI components or players**         | anime-sdk is a headless library. Rendering is out of scope.                                                                                                                                                                                     |
+| **Login-gated or paywall sites**     | anime-sdk is for publicly accessible streams. Sites that require accounts are out of scope.                                                                                                                                                     |
 | **Caching or rate-limiting layers**  | Those belong in the application layer, not the SDK.                                                                                                                                                                                             |
 | **CLI wrappers or download scripts** | Out of scope: use the HTTP server or call the SDK directly.                                                                                                                                                                                     |
 | **Mocked E2E tests**                 | All E2E tests must hit live sites. A provider test that passes with mocks but fails against the real site is worse than no test.                                                                                                                |
@@ -49,7 +49,7 @@ Edge cases in `HlsUtils.rewriteManifest`, extractor HTML fixtures, language infe
 
 ## Overview
 
-ani-sdk has three layers:
+anime-sdk has three layers:
 
 - **Transport** (`src/transport/`): `HttpClient`, `DomRegistry`, `HlsUtils`. Rarely needs changes for new providers.
 - **Extractors** (`src/extractors/`): stateless embed parsers. Add one when an embed platform is genuinely novel.

@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install ani-sdk and resolve your first anime stream in minutes.
+description: Install anime-sdk and resolve your first anime stream in minutes.
 ---
 
 A small Typescript SDK for searching anime and manga, listing episodes/chapters, and resolving direct stream/page URLs (with subtitle tracks). Nine providers, a handful of reusable embed extractors, a pluggable HTTP transport, and an optional HTTP server with a stream/subtitle proxy and a bring-your-own cache hook.
@@ -13,11 +13,11 @@ A small Typescript SDK for searching anime and manga, listing episodes/chapters,
 ## Install
 
 ```sh
-npm install ani-sdk
+npm install anime-sdk
 # -- or --
-pnpm add ani-sdk
+pnpm add anime-sdk
 # -- or --
-bun add ani-sdk
+bun add anime-sdk
 ```
 
 ## How it works
@@ -25,7 +25,7 @@ bun add ani-sdk
 Every provider exposes the same three methods: `search` → `fetchContentUnits` → `resolveStream`.
 
 ```ts
-import { HttpClient, GogoanimeProvider, MangadexProvider } from 'ani-sdk';
+import { HttpClient, GogoanimeProvider, MangadexProvider } from 'anime-sdk';
 
 const client = new HttpClient({ timeoutMs: 10_000 });
 
@@ -134,7 +134,7 @@ hls.loadSource(stream.sourceUrl);
 The SDK includes built-in download utilities. HLS anime streams are downloaded by fetching segments and muxing with `ffmpeg`; direct MP4s stream straight to disk. Manga chapters are packaged as `.zip` archives.
 
 ```ts
-import { downloadVideo, downloadMangaChapter } from 'ani-sdk';
+import { downloadVideo, downloadMangaChapter } from 'anime-sdk';
 
 // Anime: resolveStream → downloadVideo
 const animeResult = await animeProvider.resolveStream(eps[0].id, 'sub');
@@ -162,7 +162,7 @@ Pass the full `streams` array to `downloadVideo` and it tries each candidate in 
 The three calls are identical across providers. Swap the import and constructor, nothing else changes:
 
 ```ts
-import { AllmangaProvider } from 'ani-sdk';
+import { AllmangaProvider } from 'anime-sdk';
 const provider = new AllmangaProvider(new HttpClient());
 // same: search → fetchContentUnits → resolveStream
 ```
@@ -171,6 +171,6 @@ const provider = new AllmangaProvider(new HttpClient());
 
 - [Browse providers](/docs/providers/): AllManga, Gogoanime, Anikoto, Goyabu
 - [Downloads](/docs/download/): save episodes as MP4 and chapters as ZIP
-- [Run the HTTP server](/docs/http-server/): call ani-sdk from any language
+- [Run the HTTP server](/docs/http-server/): call anime-sdk from any language
 - [Full API reference](/docs/api-reference/)
 - [Add a provider](/docs/contributing/)

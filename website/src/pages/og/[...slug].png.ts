@@ -20,7 +20,7 @@ async function getFonts() {
 
 export const pages: Record<string, { title: string; description: string; section?: string }> = {
   index: {
-    title: 'ani-sdk',
+    title: 'anime-sdk',
     description:
       'Nine providers. A pluggable HTTP transport. An optional proxy server. Ship your anime app without touching a single stream URL.',
   },
@@ -33,13 +33,13 @@ export const pages: Record<string, { title: string; description: string; section
   'docs/index': {
     title: 'Getting Started',
     description:
-      'Install ani-sdk, shim DOMParser, pick a provider, and resolve your first stream in under ten lines of TypeScript.',
+      'Install anime-sdk, shim DOMParser, pick a provider, and resolve your first stream in under ten lines of TypeScript.',
     section: 'DOCS',
   },
   'docs/http-server': {
     title: 'HTTP Server',
     description:
-      'Expose every provider over REST — /search, /content, /stream, /tracks — so any language or frontend can call ani-sdk over HTTP.',
+      'Expose every provider over REST — /search, /content, /stream, /tracks — so any language or frontend can call anime-sdk over HTTP.',
     section: 'DOCS',
   },
   'docs/proxy': {
@@ -129,7 +129,7 @@ export const pages: Record<string, { title: string; description: string; section
   dmca: {
     title: 'DMCA',
     description:
-      'ani-sdk does not host content. It resolves publicly accessible URLs from third-party sites.',
+      'anime-sdk does not host content. It resolves publicly accessible URLs from third-party sites.',
     section: 'LEGAL',
   },
   terms: {
@@ -193,12 +193,12 @@ function buildImage(title: string, description: string, section?: string) {
       h(
         'span',
         { style: { color: ACCENT, fontSize: 14, fontWeight: 700, letterSpacing: '0.1em' } },
-        'ANI-SDK',
+        'anime-sdk',
       ),
       h(
         'span',
         { style: { color: MUTED, fontSize: 13, fontWeight: 400 } },
-        'github.com/hexxt-git/ani-sdk',
+        'github.com/hexxt-git/anime-sdk',
       ),
     ),
     // Content row

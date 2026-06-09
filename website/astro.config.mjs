@@ -8,10 +8,10 @@ export default defineConfig({
   server: { port: 4321 },
   integrations: [
     starlight({
-      title: 'ani-sdk',
+      title: 'anime-sdk',
       description: 'Typescript SDK for building anime apps',
-      favicon: '/ani-sdk.ico',
-      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/hexxt-git/ani-sdk' }],
+      favicon: '/anime-sdk.ico',
+      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/hexxt-git/anime-sdk' }],
       customCss: ['./src/styles/starlight.css'],
       components: {
         ThemeSelect: './src/components/ThemeSelect.astro',

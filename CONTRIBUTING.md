@@ -1,4 +1,4 @@
-# Contributing to ani-sdk
+# Contributing to anime-sdk
 
 ## Prerequisites
 
@@ -8,8 +8,8 @@
 ## Setup
 
 ```sh
-git clone https://github.com/hexxt-git/ani-sdk
-cd ani-sdk
+git clone https://github.com/hexxt-git/anime-sdk
+cd anime-sdk
 npm install        # or: pnpm install
 
 npm run test:run   # unit + live E2E (~60–90s, requires internet)
@@ -33,7 +33,7 @@ npm run build      # tsc → dist/
 | Area                             | Reason                                                                                                 |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Browser / frontend support       | The SDK depends on `child_process`, Node-specific crypto, and shell-out for E2E tests                  |
-| UI components or players         | ani-sdk is headless                                                                                    |
+| UI components or players         | anime-sdk is headless                                                                                  |
 | Login-gated or paywall sites     | Publicly accessible streams only                                                                       |
 | Caching or rate-limiting layers  | Application-layer concern, not the SDK's                                                               |
 | CLI wrappers or download scripts | Use the HTTP server or import the SDK directly                                                         |
@@ -52,7 +52,7 @@ A new provider is only complete when it is integrated across the whole ecosystem
    - Create a new MDX file in `website/src/content/docs/docs/providers/myprovider.mdx`.
    - Update the providers list in `website/src/content/docs/docs/providers/index.mdx`.
 
-See the [full contributing guide](https://hexxt-git.github.io/ani-sdk/docs/contributing/) for annotated code examples and the extractor guide.
+See the [full contributing guide](https://hexxt-git.github.io/anime-sdk/docs/contributing/) for annotated code examples and the extractor guide.
 
 ## PR guidelines
 

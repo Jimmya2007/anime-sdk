@@ -468,7 +468,7 @@ export function startServer(options: ServerOptions): http.Server {
             res.end();
             return;
           }
-          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'anime-sdk-dl-'));
           const safeUnit = unitId.replace(/[^a-zA-Z0-9_-]/g, '_');
           const filename = `${provider.id}_${safeUnit}.mp4`;
           const tmpFile = path.join(tmpDir, filename);
@@ -525,7 +525,7 @@ export function startServer(options: ServerOptions): http.Server {
             res.end();
             return;
           }
-          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'anime-sdk-dl-'));
           const safeUnit = unitId.replace(/[^a-zA-Z0-9_-]/g, '_');
           const filename = `${provider.id}_${safeUnit}.zip`;
           const tmpFile = path.join(tmpDir, filename);
@@ -578,7 +578,7 @@ export function startServer(options: ServerOptions): http.Server {
           return err(res, 400, `Content is not video (type: ${stream.type})`);
         }
 
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'anime-sdk-dl-'));
         const tmpFile = path.join(tmpDir, `${provider.id}_${unitId.replace(/\//g, '_')}.mp4`);
 
         try {
@@ -711,7 +711,7 @@ export function startServer(options: ServerOptions): http.Server {
           return err(res, 400, `Content is not manga (type: ${stream.type})`);
         }
 
-        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'anime-sdk-dl-'));
         const tmpFile = path.join(tmpDir, `${provider.id}_${unitId.replace(/\//g, '_')}.zip`);
 
         try {
@@ -763,6 +763,6 @@ export function startServer(options: ServerOptions): http.Server {
     }
   });
 
-  server.listen(port, () => console.log(`ani-sdk server listening on http://localhost:${port}`));
+  server.listen(port, () => console.log(`anime-sdk server listening on http://localhost:${port}`));
   return server;
 }

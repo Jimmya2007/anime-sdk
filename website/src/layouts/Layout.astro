@@ -9,7 +9,7 @@ interface Props {
 }
 
 const {
-  title = 'ani-sdk: Typescript SDK for building anime apps',
+  title = 'anime-sdk: Typescript SDK for building anime apps',
   description = 'Typescript SDK for building anime apps.',
   ogImage,
 } = Astro.props;
@@ -32,8 +32,8 @@ const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : un
     {ogImageUrl && <meta property="og:image:type" content="image/png" />}
     {ogImageUrl && <meta name="twitter:card" content="summary_large_image" />}
     {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
-    <link rel="icon" type="image/svg+xml" href="/ani-sdk.svg" />
-    <link rel="icon" type="image/x-icon" href="/ani-sdk.ico" />
+    <link rel="icon" type="image/svg+xml" href="/anime-sdk.svg" />
+    <link rel="icon" type="image/x-icon" href="/anime-sdk.ico" />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"

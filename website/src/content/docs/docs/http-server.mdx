@@ -1,6 +1,6 @@
 ---
 title: HTTP Server
-description: Run ani-sdk as a standalone HTTP server and call it from any language over HTTP.
+description: Run anime-sdk as a standalone HTTP server and call it from any language over HTTP.
 ---
 
 `startServer` launches a Node `http.Server` that exposes the SDK's operations as HTTP routes: `/search`, `/content`, `/stream`, `/tracks`, and (optionally) `/proxy`. Pass the providers you want to expose, plus optional flags for the proxy, a bearer token, and a cache.
@@ -8,7 +8,7 @@ description: Run ani-sdk as a standalone HTTP server and call it from any langua
 ## Starting the server
 
 ```ts
-import { HttpClient, AllmangaProvider, GogoanimeProvider, startServer } from 'ani-sdk';
+import { HttpClient, AllmangaProvider, GogoanimeProvider, startServer } from 'anime-sdk';
 
 const server = startServer({
   providers: [
@@ -22,7 +22,7 @@ const server = startServer({
 // server is an http.Server: you can call server.close() to shut it down
 ```
 
-The server logs `ani-sdk server listening on http://localhost:3000` when ready.
+The server logs `anime-sdk server listening on http://localhost:3000` when ready.
 
 ## Routes
 

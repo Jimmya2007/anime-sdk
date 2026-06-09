@@ -97,10 +97,10 @@ export class HttpClient {
               const path = await import('path');
               this.cookieFile = path.join(
                 os.tmpdir(),
-                `ani-sdk-cookie-${Math.random().toString(36).substring(2)}.txt`,
+                `anime-sdk-cookie-${Math.random().toString(36).substring(2)}.txt`,
               );
             } catch (e) {
-              this.cookieFile = `/tmp/ani-sdk-cookie-${Math.random().toString(36).substring(2)}.txt`;
+              this.cookieFile = `/tmp/anime-sdk-cookie-${Math.random().toString(36).substring(2)}.txt`;
             }
           }
 

@@ -6,11 +6,11 @@ import Footer from '../components/Footer.astro';
 const faqs = [
   {
     q: 'What is the fastest way to get started?',
-    a: 'Clone <a href="https://github.com/hexxt-git/ani-sdk/tree/master/examples" target="_blank" class="underline underline-offset-2 transition-colors hover:text-white">github.com/hexxt-git/ani-sdk/tree/master/examples</a>. Build the SDK: <code>npm run build</code>. Start the server: <code>node examples/server.mjs</code>. Run the website: <code>cd examples/website && npm install && npm run dev</code>.',
+    a: 'Clone <a href="https://github.com/hexxt-git/anime-sdk/tree/master/examples" target="_blank" class="underline underline-offset-2 transition-colors hover:text-white">github.com/hexxt-git/anime-sdk/tree/master/examples</a>. Build the SDK: <code>npm run build</code>. Start the server: <code>node examples/server.mjs</code>. Run the website: <code>cd examples/website && npm install && npm run dev</code>.',
   },
   {
-    q: 'Can I use ani-sdk in a browser app?',
-    a: 'No. ani-sdk runs in Node or Bun only. For a browser frontend, run the built-in HTTP server on your backend and call it over HTTP from the client. Set proxy: true when starting the server — it rewrites stream URLs so your frontend never has to deal with CDN headers or CORS.',
+    q: 'Can I use anime-sdk in a browser app?',
+    a: 'No. anime-sdk runs in Node or Bun only. For a browser frontend, run the built-in HTTP server on your backend and call it over HTTP from the client. Set proxy: true when starting the server — it rewrites stream URLs so your frontend never has to deal with CDN headers or CORS.',
   },
   {
     q: 'I got a sourceUrl back from resolveStream. How do I play it?',
@@ -29,12 +29,12 @@ const faqs = [
     a: 'Yes, usually within minutes. Resolve streams on demand when the user wants to play something — do not cache them. Search results and episode lists are safe to cache; stream URLs are not.',
   },
   {
-    q: 'Can I use ani-sdk without TypeScript?',
+    q: 'Can I use anime-sdk without TypeScript?',
     a: 'Yes. The package ships as compiled JavaScript with type declarations alongside. Use ESM (import) or CommonJS (require) — TypeScript is not required either way.',
   },
   {
-    q: 'Is ani-sdk legal to use?',
-    a: 'ani-sdk resolves stream URLs from sites that host content publicly. It does not bypass DRM or crack paywalls. Whether your specific use is legal depends on your jurisdiction and what you are building — a personal tool is a different situation from a public redistribution service.',
+    q: 'Is anime-sdk legal to use?',
+    a: 'anime-sdk resolves stream URLs from sites that host content publicly. It does not bypass DRM or crack paywalls. Whether your specific use is legal depends on your jurisdiction and what you are building — a personal tool is a different situation from a public redistribution service.',
   },
   {
     q: 'What happens when a provider goes down?',
@@ -42,22 +42,22 @@ const faqs = [
   },
   {
     q: 'Can I download episodes and chapters to disk?',
-    a: 'Yes. downloadVideo saves an episode as an MP4, downloadMangaChapter saves a chapter as a ZIP. Both are exported from ani-sdk. The HTTP server also has /download endpoints that stream progress back via SSE so you can show a progress bar.',
+    a: 'Yes. downloadVideo saves an episode as an MP4, downloadMangaChapter saves a chapter as a ZIP. Both are exported from anime-sdk. The HTTP server also has /download endpoints that stream progress back via SSE so you can show a progress bar.',
   },
   {
     q: 'What does the proxy do?',
     a: "The /proxy endpoint in the HTTP server fetches any URL on the server's behalf, attaching whatever headers the CDN requires. When you start the server with proxy: true, stream and subtitle URLs are automatically rewritten to go through it. Browser clients just use the URL directly — no extra headers needed, no CORS issues.",
   },
   {
-    q: 'Does ani-sdk cache anything?',
+    q: 'Does anime-sdk cache anything?',
     a: 'Not on its own. The HTTP server accepts a cache object with get and set methods — a plain Map, Redis, SQLite, anything works. Search results and episode lists are safe to cache for a long time. Do not cache stream URLs.',
   },
 ];
 ---
 
 <Layout
-  title="FAQ — ani-sdk"
-  description="Frequently asked questions about ani-sdk."
+  title="FAQ — anime-sdk"
+  description="Frequently asked questions about anime-sdk."
   ogImage="/og/faq.png"
 >
   <div class="font-sans text-white">
@@ -68,9 +68,9 @@ const faqs = [
         <div class="label mb-3">FAQ</div>
         <h1 class="mb-2 text-[32px] font-bold tracking-tight">Frequently asked questions.</h1>
         <p class="text-[14px]" style="color: var(--muted);">
-          Answers to common questions about ani-sdk. Missing something?
+          Answers to common questions about anime-sdk. Missing something?
           <a
-            href="https://github.com/hexxt-git/ani-sdk/issues"
+            href="https://github.com/hexxt-git/anime-sdk/issues"
             target="_blank"
             class="underline underline-offset-2 transition-colors hover:text-white"
             >Open an issue.</a

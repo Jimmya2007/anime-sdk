@@ -1,4 +1,4 @@
-# ani-sdk Website Design System
+# anime-sdk Website Design System
 
 ## Philosophy
 
