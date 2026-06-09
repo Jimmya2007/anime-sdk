@@ -10,9 +10,7 @@ export default defineConfig({
       title: 'ani-sdk',
       description: 'TypeScript SDK for anime stream resolution',
       favicon: '/ani-sdk.ico',
-      social: {
-        github: 'https://github.com/hexxt-git/ani-sdk',
-      },
+      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/hexxt-git/ani-sdk' }],
       customCss: ['./src/styles/starlight.css'],
       components: {
         ThemeSelect: './src/components/ThemeSelect.astro',
