@@ -23,7 +23,6 @@ the stream/pages, and captures a real video frame or verifies page links.
 src/
 ├── transport/
 │   ├── http.ts              HttpClient: fetch + curl fallback, proxy routing
-│   ├── flaresolverr.ts      FlareSolverrClient: optional CF/DDoS-Guard bypass
 │   ├── dom.ts               DOMParser registry (auto-registers linkedom in Node)
 │   └── hlsUtils.ts          Rewrite m3u8 chunk URLs through a proxy
 ├── extractors/
@@ -152,9 +151,11 @@ Screenshots land in `scratch/screenshots/screenshot_<provider>.png`.
 - Node 20+ (uses `fetch`, `globalThis.crypto.subtle`, top-level await in
   tests).
 - `ffmpeg` on `PATH` for the E2E suite.
-- FlareSolverr (optional) for any provider you write that needs CF bypass;
-  see `FLARESOLVERR.md` and `docker-compose.yml`.
 
 ## License
 
 MIT
+
+## DMCA
+
+ani-sdk does not host, store, or distribute any media content. It resolves publicly accessible URLs served by third-party sites. For copyright concerns about content on those sites, contact them directly. To report infringement in the SDK code or this repository, open an issue tagged `legal`.

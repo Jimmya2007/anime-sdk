@@ -18,13 +18,13 @@ npm run build      # tsc → dist/
 
 ## What's welcome
 
-**New providers** — the highest-value contribution. A good target is a public site (no login required) that covers a language, catalogue, or content type (Anime or Manga) the existing providers don't. Cloudflare-protected sites are fine — accept `FlareSolverrClient` as an optional constructor argument.
+**New providers** — the highest-value contribution. A good target is a public site (no login required) that covers a language, catalogue, or content type (Anime or Manga) the existing providers don't.
 
 **Bug fixes for existing providers** — site layouts change. A targeted fix with a passing E2E test is always welcome. Open an issue first if the change is large.
 
 **New extractors** — only when the embed format is genuinely novel and none of the four existing extractors (`GenericHlsExtractor`, `Mp4UploadExtractor`, `BloggerExtractor`, `VidstreamingExtractor`) can handle it.
 
-**Unit tests** — edge cases in `HlsUtils`, `FlareSolverrClient`, extractor HTML parsing, language inference. These run without a network.
+**Unit tests** — edge cases in `HlsUtils`, extractor HTML parsing, language inference. These run without a network.
 
 **Transport / HTTP server improvements** — proxy mode extensions, better curl fallback diagnostics, new server routes, Bun compatibility.
 
@@ -32,7 +32,6 @@ npm run build      # tsc → dist/
 
 | Area                             | Reason                                                                                                 |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Downloading / saving media       | ani-sdk resolves URLs — feeding them to `ffmpeg` is the consumer's job                                 |
 | Browser / frontend support       | The SDK depends on `child_process`, Node-specific crypto, and shell-out for E2E tests                  |
 | UI components or players         | ani-sdk is headless                                                                                    |
 | Login-gated or paywall sites     | Publicly accessible streams only                                                                       |
@@ -53,7 +52,7 @@ A new provider is only complete when it is integrated across the whole ecosystem
    - Create a new MDX file in `website/src/content/docs/docs/providers/myprovider.mdx`.
    - Update the providers list in `website/src/content/docs/docs/providers/index.mdx`.
 
-See the [full contributing guide](https://hexxt-git.github.io/ani-sdk/docs/contributing/) for annotated code examples, the extractor guide, and the CF-protected site pattern.
+See the [full contributing guide](https://hexxt-git.github.io/ani-sdk/docs/contributing/) for annotated code examples and the extractor guide.
 
 ## PR guidelines
 

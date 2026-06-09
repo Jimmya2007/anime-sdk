@@ -79,6 +79,5 @@ A User-Agent header (`Chrome/120`) is set automatically on the `HttpClient` if o
 
 ## Notes
 
-- Does not require `FlareSolverrClient`.
 - `resolveStream` runs embed URLs through `GenericHlsExtractor` sequentially and returns on the first successful extraction, so resolution is fast (~0.5s) even when multiple server buttons are present. Falls back to raw embed URLs if nothing resolves.
 - If anineko.to changes domain, pass the new URL via `options.baseUrl`.

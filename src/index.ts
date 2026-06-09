@@ -5,7 +5,6 @@ export * from './types/index.js';
 export * from './transport/http.js';
 export * from './transport/hlsUtils.js';
 export * from './transport/dom.js';
-export * from './transport/flaresolverr.js';
 
 // Extractors
 export * from './extractors/BaseExtractor.js';

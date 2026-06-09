@@ -13,8 +13,6 @@ The highest-value contribution. A good target is a site that:
 - Hosts direct HLS or MP4 streams, possibly behind a simple embed layer
 - Covers a language or catalogue not already served by the three existing providers
 
-If the site is Cloudflare-protected, it's still welcome. Accept `FlareSolverrClient` as an optional constructor argument and throw a clear error when it's absent.
-
 ### Bug fixes for existing providers
 
 Site layouts change. If a provider's scraping logic breaks because the upstream site updated its HTML, a targeted fix with a passing E2E test is always welcome. Open an issue first if the fix is large.
@@ -32,7 +30,7 @@ Add one when the embed format is genuinely novel: not handled by `GenericHlsExtr
 
 ### Unit tests
 
-Edge cases in `HlsUtils.rewriteManifest`, `FlareSolverrClient` response parsing, extractor HTML fixtures, language inference: these are always welcome and run in CI without a network.
+Edge cases in `HlsUtils.rewriteManifest`, extractor HTML fixtures, language inference: these are always welcome and run in CI without a network.
 
 ---
 
@@ -53,7 +51,7 @@ Edge cases in `HlsUtils.rewriteManifest`, `FlareSolverrClient` response parsing,
 
 ani-sdk has three layers:
 
-- **Transport** (`src/transport/`): `HttpClient`, `DomRegistry`, `HlsUtils`, `FlareSolverrClient`. Rarely needs changes for new providers.
+- **Transport** (`src/transport/`): `HttpClient`, `DomRegistry`, `HlsUtils`. Rarely needs changes for new providers.
 - **Extractors** (`src/extractors/`): stateless embed parsers. Add one when an embed platform is genuinely novel.
 - **Providers** (`src/providers/`): site-specific adapters. This is where most contributions live.
 
@@ -242,37 +240,6 @@ export * from './extractors/MyExtractor.js';
 
 ---
 
-## Cloudflare-protected sites
-
-If the target site is behind Cloudflare or DDoS-Guard:
-
-```ts
-import type { FlareSolverrClient } from '../transport/flaresolverr.js';
-
-export class MyProvider extends BaseProvider {
-  constructor(
-    http: HttpClient,
-    private flare?: FlareSolverrClient,
-  ) {
-    super(http);
-  }
-
-  public async search(query: string) {
-    if (!this.flare) {
-      throw new Error('MyProvider requires FlareSolverrClient: this site is CF-protected');
-    }
-    const res = await this.flare.get(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`);
-    // res.text() / res.json() / res.headers / res.url
-    const html = res.text();
-    // ...
-  }
-}
-```
-
-Check `await flare.isAvailable()` in the test setup to skip gracefully if FlareSolverr isn't running.
-
----
-
 ## Running tests
 
 ```sh
@@ -313,4 +280,3 @@ npm run build   # tsc → dist/ (ESM, NodeNext)
 - [ ] All imports use `.js` extension
 - [ ] Exported from `src/index.ts`
 - [ ] Live E2E test using `captureStreamScreenshot`: no mocking, 90s timeout
-- [ ] CF-protected sites: accepts `FlareSolverrClient` optionally, throws clear error when absent
