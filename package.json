@@ -1,6 +1,6 @@
 {
   "name": "ani-sdk",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Universal Media Scraper SDK",
   "main": "dist/index.cjs",
   "module": "dist/index.js",
@@ -27,6 +27,7 @@
     "*.{ts,tsx,js,mjs,astro,css,json,md,mdx}": "prettier --write"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^25.9.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
@@ -35,6 +36,6 @@
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tsup": "^8.5.1",
     "typescript": "^5.4.5",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.8"
   }
 }
