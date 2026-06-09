@@ -14,7 +14,7 @@ const {
   ogImage,
 } = Astro.props;
 
-const ogImageUrl = ogImage ? new URL(ogImage, Astro.url).href : undefined;
+const ogImageUrl = ogImage ? new URL(ogImage, Astro.site ?? Astro.url).href : undefined;
 ---
 
 <!doctype html>

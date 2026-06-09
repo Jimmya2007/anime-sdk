@@ -4,7 +4,7 @@ import Default from '@astrojs/starlight/components/Head.astro';
 
 // Route.id is the slug (e.g. "docs/providers/allmanga") — entry.slug no longer exists in Starlight v0.40+
 const id = Astro.props.id;
-const origin = Astro.url.origin;
+const origin = Astro.site?.origin ?? Astro.url.origin;
 const ogImageUrl = `${origin}/og/${id}.png`;
 ---
 
