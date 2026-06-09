@@ -10,6 +10,7 @@ function buildCrumbs(pathname: string, sp: URLSearchParams): Crumb[] {
   const provider = sp.get('provider');
   const title = sp.get('title');
   const ep = sp.get('ep');
+  const type = sp.get('type');
 
   const crumbs: Crumb[] = [{ label: 'ANI-SDK', href: `/` }];
 
@@ -21,7 +22,7 @@ function buildCrumbs(pathname: string, sp: URLSearchParams): Crumb[] {
   if (title) {
     const mid = sp.get('mid');
     const episodesHref = mid
-      ? `/episodes?provider=${provider}&mid=${encodeURIComponent(mid)}&title=${encodeURIComponent(title)}`
+      ? `/episodes?provider=${provider}&mid=${encodeURIComponent(mid)}&title=${encodeURIComponent(title)}${type ? `&type=${type}` : ''}`
       : undefined;
     crumbs.push(pathname === '/episodes' ? { label: title } : { label: title, href: episodesHref });
   }

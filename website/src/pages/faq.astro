@@ -5,55 +5,59 @@ import Footer from '../components/Footer.astro';
 
 const faqs = [
   {
-    q: 'Is this legal?',
-    a: 'ani-sdk resolves publicly accessible stream URLs from sites that host content openly on the web. It does not bypass DRM, decrypt proprietary streams, or circumvent paywalls. How you use the resolved URLs is your responsibility.',
+    q: 'What is the fastest way to get started?',
+    a: 'Clone <a href="https://github.com/hexxt-git/ani-sdk/tree/master/examples" target="_blank" class="underline underline-offset-2 transition-colors hover:text-white">github.com/hexxt-git/ani-sdk/tree/master/examples</a>. Build the SDK: <code>npm run build</code>. Start the server: <code>node examples/server.mjs</code>. Run the website: <code>cd examples/website && npm install && npm run dev</code>.',
   },
   {
-    q: 'Does it work in the browser?',
-    a: 'No. ani-sdk requires Node 20+ or Bun. It uses crypto.subtle for AES-CTR decryption and shells out to curl as a fallback transport: neither is available in a browser context. For browser clients, run the HTTP server and call it over HTTP.',
+    q: 'Can I use ani-sdk in a browser app?',
+    a: 'No. ani-sdk runs in Node or Bun only. For a browser frontend, run the built-in HTTP server on your backend and call it over HTTP from the client. Set proxy: true when starting the server — it rewrites stream URLs so your frontend never has to deal with CDN headers or CORS.',
+  },
+  {
+    q: 'I got a sourceUrl back from resolveStream. How do I play it?',
+    a: "Check isHLS. If true, the URL is an HLS stream — use hls.js on Chrome or Firefox, or a native &lt;video&gt; on Safari. If false, it's a plain MP4 you can set directly as the video source. If you're running the HTTP server with proxy: true, all of this is handled for you and the URL just works.",
+  },
+  {
+    q: 'Which provider should I use?',
+    a: 'For general anime, start with AllManga — widest catalogue, sub and dub, stable API. AnimeParadise is the best pick when you need external subtitle tracks. Gogoanime is a solid fallback for titles AllManga is missing. Goyabu is the only option for Brazilian Portuguese. For manga, MangaDex first, then WeebCentral or Mangapill.',
+  },
+  {
+    q: 'Which providers have dubbed anime?',
+    a: "AllManga, Anikoto, and MegaPlay support sub and dub. Goyabu is Brazilian Portuguese dub only. Gogoanime and AnimeParadise are sub-only. Pass the language when calling resolveStream — if a provider doesn't support what you asked for, it falls back to sub.",
+  },
+  {
+    q: 'Do stream URLs expire?',
+    a: 'Yes, usually within minutes. Resolve streams on demand when the user wants to play something — do not cache them. Search results and episode lists are safe to cache; stream URLs are not.',
+  },
+  {
+    q: 'Can I use ani-sdk without TypeScript?',
+    a: 'Yes. The package ships as compiled JavaScript with type declarations alongside. Use ESM (import) or CommonJS (require) — TypeScript is not required either way.',
+  },
+  {
+    q: 'Is ani-sdk legal to use?',
+    a: 'ani-sdk resolves stream URLs from sites that host content publicly. It does not bypass DRM or crack paywalls. Whether your specific use is legal depends on your jurisdiction and what you are building — a personal tool is a different situation from a public redistribution service.',
   },
   {
     q: 'What happens when a provider goes down?',
-    a: 'Each provider is independently swappable. If one source changes its API or goes offline, you swap the provider import: the three calls (search, fetchContentUnits, resolveStream) stay identical. The live E2E test suite catches upstream changes automatically.',
+    a: 'Swap it out. All providers share the same three-method interface, so switching is a one-line import change. The live E2E tests hit real endpoints and fail the moment an upstream site breaks, which is how we catch when a provider needs updating.',
   },
   {
-    q: 'What does resolveStream actually return?',
-    a: "A ResolvedMediaStream discriminated union: all current providers return type: 'video'. The streams array holds IVideoPayload objects: each has a sourceUrl, an isHLS boolean, a quality string, and optional headers the CDN requires. See the API reference for the full types.",
+    q: 'Can I download episodes and chapters to disk?',
+    a: 'Yes. downloadVideo saves an episode as an MP4, downloadMangaChapter saves a chapter as a ZIP. Both are exported from ani-sdk. The HTTP server also has /download endpoints that stream progress back via SSE so you can show a progress bar.',
   },
   {
-    q: 'Can I add my own provider?',
-    a: 'Yes. Extend BaseProvider, implement the three methods, re-export from src/index.ts, and add one live E2E test. The contributing guide walks through each step with code examples.',
+    q: 'What does the proxy do?',
+    a: "The /proxy endpoint in the HTTP server fetches any URL on the server's behalf, attaching whatever headers the CDN requires. When you start the server with proxy: true, stream and subtitle URLs are automatically rewritten to go through it. Browser clients just use the URL directly — no extra headers needed, no CORS issues.",
   },
   {
-    q: 'Does ani-sdk support downloading to disk?',
-    a: 'Yes. Use downloadVideo to save an anime episode as MP4, or downloadMangaChapter to save a manga chapter as a ZIP. Both are exported from ani-sdk. The HTTP server also exposes /download/video and /download/manga/chapter endpoints with SSE-based progress streaming.',
-  },
-  {
-    q: 'What is the difference between sub, dub, and raw?',
-    a: "sub = original audio with subtitles (default). dub = audio dubbed into another language (usually English). raw = original audio with no subtitles. fetchContentUnits returns one unified episode list: each unit's availableLanguages array tells you which of these it can be played in. Pick the translation when you call resolveStream; providers that don't support the requested language fall back to sub.",
-  },
-  {
-    q: 'How do I get subtitle tracks?',
-    a: 'When a provider exposes external subtitles (currently AnimeParadise), IVideoPayload.subtitles carries ISubtitleTrack[] (url, language, label, format). With proxy: true on startServer, those URLs are already rewritten through /proxy with the right Content-Type: hand them straight to a <track> element on a <video crossOrigin="anonymous">. You can also call /tracks (or provider.fetchUnitTracks) for the same data without resolving the playable stream.',
-  },
-  {
-    q: 'Does the SDK cache anything?',
-    a: 'Not by itself. startServer accepts an optional cache: SdkCache (a two-method get/set interface) and memoises /search, /content, /stream, and /tracks results by namespaced keys. Plug in a Map for dev, Redis or SQLite for production. The example examples/server.mjs uses a Map with simple FIFO eviction.',
-  },
-  {
-    q: 'How are providers tested?',
-    a: 'Each provider has a live E2E test that searches a real show, resolves a real stream, fetches a segment ~5 seconds in, and runs ffmpeg to extract a PNG frame. The assertion is that the frame is larger than 1 KB. No mocking; the point is to catch upstream site changes.',
-  },
-  {
-    q: 'Do I need FlareSolverrClient for basic use?',
-    a: "No. None of the built-in providers (AnimeParadise, AllManga, Gogoanime, Anikoto, Goyabu) require FlareSolverrClient. It's an optional transport for custom providers that target Cloudflare or DDoS-Guard protected sites.",
+    q: 'Does ani-sdk cache anything?',
+    a: 'Not on its own. The HTTP server accepts a cache object with get and set methods — a plain Map, Redis, SQLite, anything works. Search results and episode lists are safe to cache for a long time. Do not cache stream URLs.',
   },
 ];
 ---
 
 <Layout>
   <div class="font-sans text-white">
-    <div class="frame">
+    <div class="frame faq">
       <Nav />
 
       <div class="hline px-10 py-8">
@@ -74,9 +78,11 @@ const faqs = [
         faqs.map((faq) => (
           <div class="hline px-10 py-6">
             <div class="mb-2 text-[14px] font-semibold">{faq.q}</div>
-            <p class="text-[13px] leading-relaxed" style="color: var(--muted); max-width: 680px;">
-              {faq.a}
-            </p>
+            <p
+              class="text-[13px] leading-relaxed"
+              style="color: var(--muted); max-width: 680px;"
+              set:html={faq.a}
+            />
           </div>
         ))
       }

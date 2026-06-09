@@ -82,6 +82,12 @@ pre {
 pre code {
   display: block;
 }
-code {
+
+.faq code {
   display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  background-color: rgba(255, 255, 255, 0.06);
+  padding: 0 5px;
+  color: #d0d0d0;
 }
