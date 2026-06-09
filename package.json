@@ -34,6 +34,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "release": "changeset publish",
     "test": "vitest",
     "test:run": "vitest run",
     "prepare": "husky"

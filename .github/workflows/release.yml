@@ -8,7 +8,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  packages: write
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -28,19 +27,10 @@ jobs:
 
       - run: npm run build
 
-      - name: Version and Publish
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          npx changeset version
-          if [[ -n $(git status --porcelain) ]]; then
-            git add .
-            git commit -m "chore: version packages"
-            git push
-          fi
-          npx changeset publish
-          npx changeset tag
-          git push --tags
+      - name: Create Release Pull Request or Publish to npm
+        uses: changesets/action@v1
+        with:
+          publish: npm run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
