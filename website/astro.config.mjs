@@ -15,6 +15,7 @@ export default defineConfig({
       components: {
         ThemeSelect: './src/components/ThemeSelect.astro',
         SiteTitle: './src/components/SiteTitle.astro',
+        Head: './src/components/StarlightHead.astro',
       },
       disable404Route: true,
       sidebar: [
