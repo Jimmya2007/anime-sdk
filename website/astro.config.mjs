@@ -9,6 +9,7 @@ export default defineConfig({
     starlight({
       title: 'ani-sdk',
       description: 'TypeScript SDK for anime stream resolution',
+      favicon: '/ani-sdk.ico',
       social: {
         github: 'https://github.com/hexxt-git/ani-sdk',
       },

@@ -40,7 +40,8 @@ export default function Layout() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] font-mono text-sm text-[#d0d0d0]">
       <div className="mx-auto max-w-3xl">
-        <header className="flex items-center border-b border-[#1e1e1e] px-4 py-3">
+        <header className="flex items-center gap-3 border-b border-[#1e1e1e] px-4 py-3">
+          <img src="/ani-sdk.svg" width="16" height="16" alt="ani-sdk logo" />
           <div className="flex items-center gap-0">
             {crumbs.map((c, i) => (
               <Fragment key={i}>
