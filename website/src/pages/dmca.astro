@@ -1,0 +1,64 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const sections = [
+  {
+    heading: 'What ani-sdk is',
+    body: 'ani-sdk is an open-source TypeScript SDK that resolves publicly accessible stream URLs from third-party websites. It does not host, store, cache, or distribute any media content. All content is served directly by those third-party sites — ani-sdk only provides the resolution logic.',
+  },
+  {
+    heading: 'Infringement on third-party sites',
+    body: 'If you believe copyrighted content is being served by one of the upstream sites, you must contact those sites directly. ani-sdk has no control over and no affiliation with any of them. Filing a DMCA notice here will not result in content removal from those platforms.',
+  },
+  {
+    heading: 'Infringement in the SDK itself',
+    body: 'If you believe the ani-sdk codebase, documentation, or this website infringes your copyright, you may file a notice. Your notice must include: (1) your legal name and contact information; (2) a description of the copyrighted work; (3) the specific URL or file in this repository that you believe infringes; (4) a statement that you have a good faith belief that the use is not authorised; (5) a statement made under penalty of perjury that the information is accurate and you are the rights holder or authorised to act on their behalf.',
+  },
+  {
+    heading: 'Counter-notices',
+    body: 'If material was removed in response to a DMCA notice and you believe the removal was in error, you may submit a counter-notice. Counter-notices must meet the requirements of 17 U.S.C. § 512(g)(3). We will restore material if required by law and if the original complainant does not file a court action within ten business days.',
+  },
+  {
+    heading: 'How to contact us',
+    body: 'Open an issue on GitHub at <a href="https://github.com/hexxt-git/ani-sdk/issues" target="_blank" class="underline underline-offset-2 transition-colors hover:text-white">github.com/hexxt-git/ani-sdk/issues</a> and mark it with the label <code class="bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11.5px]">legal</code>. For matters requiring confidentiality, use GitHub\'s private vulnerability reporting feature.',
+  },
+];
+---
+
+<Layout
+  title="DMCA — ani-sdk"
+  description="DMCA policy for ani-sdk. ani-sdk does not host content — it resolves publicly accessible URLs from third-party sites."
+  ogImage="/og/dmca.png"
+>
+  <div class="font-sans text-white">
+    <div class="frame">
+      <Nav />
+
+      <div class="hline px-10 py-8">
+        <div class="label mb-3">LEGAL</div>
+        <h1 class="mb-2 text-[32px] font-bold tracking-tight">DMCA Notice.</h1>
+        <p class="text-[14px]" style="color: var(--muted);">
+          ani-sdk does not host, store, or distribute any media content. Read below before filing a
+          notice.
+        </p>
+      </div>
+
+      {
+        sections.map((s) => (
+          <div class="hline px-10 py-6">
+            <div class="mb-2 text-[14px] font-semibold">{s.heading}</div>
+            <p
+              class="text-[13px] leading-relaxed"
+              style="color: var(--muted); max-width: 680px;"
+              set:html={s.body}
+            />
+          </div>
+        ))
+      }
+
+      <Footer />
+    </div>
+  </div>
+</Layout>

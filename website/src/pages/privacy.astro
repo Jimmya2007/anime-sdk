@@ -1,0 +1,67 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const sections = [
+  {
+    heading: 'This is a static documentation website',
+    body: 'ani-sdk.dev is a read-only documentation site. There are no user accounts, no login, no forms that collect personal data, and no analytics scripts loaded by us. We do not track visitors.',
+  },
+  {
+    heading: 'Hosting provider',
+    body: "This site is deployed on a standard hosting platform. The hosting provider may collect standard web server logs (IP address, user agent, referrer, timestamp) as part of normal infrastructure operation. Refer to your hosting provider's own privacy policy for details on how those logs are handled and retained.",
+  },
+  {
+    heading: 'Google Fonts',
+    body: 'Pages on this site load Inter and JetBrains Mono from Google Fonts. Google may log your IP address when fonts are fetched. See <a href="https://policies.google.com/privacy" target="_blank" class="underline underline-offset-2 transition-colors hover:text-white">Google\'s Privacy Policy</a> for details. Fonts are cached by browsers after the first load.',
+  },
+  {
+    heading: 'Cookies',
+    body: 'We do not set any cookies. The site has no session state, no preferences stored in cookies, and no third-party advertising cookies.',
+  },
+  {
+    heading: 'The SDK itself',
+    body: "ani-sdk is server-side code that runs in your environment. It makes HTTP requests to third-party streaming sites on behalf of your application. We have no visibility into those requests and collect no telemetry. What data those sites see (your server's IP, request headers) is governed by their own privacy policies.",
+  },
+  {
+    heading: 'Contact',
+    body: 'Questions about this policy can be filed as an issue at <a href="https://github.com/hexxt-git/ani-sdk/issues" target="_blank" class="underline underline-offset-2 transition-colors hover:text-white">github.com/hexxt-git/ani-sdk/issues</a>.',
+  },
+];
+---
+
+<Layout
+  title="Privacy Policy — ani-sdk"
+  description="Privacy policy for ani-sdk. No accounts, no tracking, no analytics. A static documentation site."
+  ogImage="/og/privacy.png"
+>
+  <div class="font-sans text-white">
+    <div class="frame">
+      <Nav />
+
+      <div class="hline px-10 py-8">
+        <div class="label mb-3">LEGAL</div>
+        <h1 class="mb-2 text-[32px] font-bold tracking-tight">Privacy Policy.</h1>
+        <p class="text-[14px]" style="color: var(--muted);">
+          No accounts, no tracking, no analytics. Here is exactly what data touches this site.
+        </p>
+      </div>
+
+      {
+        sections.map((s) => (
+          <div class="hline px-10 py-6">
+            <div class="mb-2 text-[14px] font-semibold">{s.heading}</div>
+            <p
+              class="text-[13px] leading-relaxed"
+              style="color: var(--muted); max-width: 680px;"
+              set:html={s.body}
+            />
+          </div>
+        ))
+      }
+
+      <Footer />
+    </div>
+  </div>
+</Layout>

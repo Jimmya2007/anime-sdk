@@ -1,0 +1,91 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+
+const channels = [
+  {
+    label: 'Bug reports & feature requests',
+    badge: 'GitHub Issues',
+    badgeHref: 'https://github.com/hexxt-git/ani-sdk/issues',
+    body: 'Open an issue on GitHub. Include the provider name, the title you were searching for, and the full error output. For feature requests, describe the use case rather than the implementation.',
+  },
+  {
+    label: 'General questions',
+    badge: 'FAQ',
+    badgeHref: '/faq',
+    body: 'Check the <a href="/faq" class="underline underline-offset-2 transition-colors hover:text-white">FAQ</a> first — it covers providers, stream URLs, browser support, the proxy, and more. If your question is not there, open a GitHub Discussion.',
+  },
+  {
+    label: 'Contributing',
+    badge: 'Contributing Guide',
+    badgeHref: '/docs/docs/contributing',
+    body: 'Read the <a href="/docs/docs/contributing" class="underline underline-offset-2 transition-colors hover:text-white">contributing guide</a> before opening a pull request. New providers need a live E2E test that screenshots a real stream — patches without one will not be merged.',
+  },
+  {
+    label: 'Security vulnerabilities',
+    badge: 'Private',
+    body: 'Do not open a public issue for security vulnerabilities. Use <a href="https://github.com/hexxt-git/ani-sdk/security/advisories/new" target="_blank" class="underline underline-offset-2 transition-colors hover:text-white">GitHub\'s private security advisory</a> so the issue can be assessed and patched before disclosure.',
+  },
+  {
+    label: 'Legal & DMCA',
+    badge: 'DMCA Page',
+    badgeHref: '/dmca',
+    body: 'See the <a href="/dmca" class="underline underline-offset-2 transition-colors hover:text-white">DMCA page</a> before reaching out. ani-sdk does not host content — notices about content on upstream sites must go to those sites directly.',
+  },
+];
+---
+
+<Layout
+  title="Contact — ani-sdk"
+  description="How to reach the ani-sdk team. Bug reports, security disclosures, legal questions, and contributing."
+  ogImage="/og/contact.png"
+>
+  <div class="font-sans text-white">
+    <div class="frame">
+      <Nav />
+
+      <div class="hline px-10 py-8">
+        <div class="label mb-3">CONTACT</div>
+        <h1 class="mb-2 text-[32px] font-bold tracking-tight">Get in touch.</h1>
+        <p class="text-[14px]" style="color: var(--muted);">
+          ani-sdk is maintained on GitHub. Use the right channel and you will get a faster response.
+        </p>
+      </div>
+
+      {
+        channels.map((c) => (
+          <div class="hline px-10 py-6">
+            <div class="mb-2 flex items-center gap-3">
+              <span class="text-[14px] font-semibold">{c.label}</span>
+              {c.badgeHref ? (
+                <a
+                  href={c.badgeHref}
+                  target={c.badgeHref.startsWith('http') ? '_blank' : undefined}
+                  class="badge"
+                  style="background: rgba(139,92,246,0.15); color: var(--accent); border: 1px solid rgba(139,92,246,0.3); text-decoration: none;"
+                >
+                  {c.badge}
+                </a>
+              ) : (
+                <span
+                  class="badge"
+                  style="background: rgba(107,114,128,0.15); color: var(--muted); border: 1px solid var(--border);"
+                >
+                  {c.badge}
+                </span>
+              )}
+            </div>
+            <p
+              class="text-[13px] leading-relaxed"
+              style="color: var(--muted); max-width: 680px;"
+              set:html={c.body}
+            />
+          </div>
+        ))
+      }
+
+      <Footer />
+    </div>
+  </div>
+</Layout>

@@ -126,6 +126,30 @@ export const pages: Record<string, { title: string; description: string; section
       'HTML scrape of mangapill.com. Wide catalogue coverage for manga titles not yet on MangaDex or WeebCentral.',
     section: 'PROVIDERS',
   },
+  dmca: {
+    title: 'DMCA',
+    description:
+      'ani-sdk does not host content. It resolves publicly accessible URLs from third-party sites.',
+    section: 'LEGAL',
+  },
+  terms: {
+    title: 'Terms of Use',
+    description:
+      'MIT-licensed open-source software. Acceptable use, no warranty, and third-party site responsibilities.',
+    section: 'LEGAL',
+  },
+  privacy: {
+    title: 'Privacy Policy',
+    description:
+      'No accounts, no tracking, no analytics. A static documentation site — here is what data we touch.',
+    section: 'LEGAL',
+  },
+  contact: {
+    title: 'Contact',
+    description:
+      'Bug reports, security disclosures, legal questions, and contributing — use the right channel.',
+    section: 'CONTACT',
+  },
 };
 
 const BORDER = 'rgba(255,255,255,0.08)';
