@@ -7,20 +7,16 @@ ani-sdk is a TypeScript SDK that resolves direct video stream URLs from anime si
 
 ## Requirements
 
-- **Node 20+** or **Bun** — native `fetch` and `crypto.subtle` are required
-- **ffmpeg** — only needed to run the live E2E test suite for anime streams
+- **Node 20+** or **Bun**: native `fetch` and `crypto.subtle` are required
+- **ffmpeg**: only needed to run the live E2E test suite for anime streams
 
 ## Install
 
 ```sh
 npm install ani-sdk
-```
-
-```sh
+# -- or --
 pnpm add ani-sdk
-```
-
-```sh
+# -- or --
 bun add ani-sdk
 ```
 
@@ -48,7 +44,7 @@ const pages = await manga.resolveStream(chapters[0].id);
 
 ## The resolved stream shape
 
-`resolveStream` returns `ResolvedMediaStream` — a discriminated union on `type`:
+`resolveStream` returns `ResolvedMediaStream`: a discriminated union on `type`:
 
 ```ts
 type ResolvedMediaStream =
@@ -90,7 +86,7 @@ interface ISubtitleTrack {
 
 ## Sub / dub / raw
 
-`fetchContentUnits` returns one unified episode list — each `IContentUnit` advertises its translations via `availableLanguages: ContentLanguage[]`. The translation is picked at `resolveStream` time:
+`fetchContentUnits` returns one unified episode list: each `IContentUnit` advertises its translations via `availableLanguages: ContentLanguage[]`. The translation is picked at `resolveStream` time:
 
 ```ts
 type ContentLanguage = 'sub' | 'dub' | 'raw';
@@ -115,7 +111,7 @@ if (provider.fetchUnitTracks) {
 }
 ```
 
-Providers without a cheap path leave the method undefined — read `IVideoPayload.subtitles` straight off the resolved stream instead.
+Providers without a cheap path leave the method undefined: read `IVideoPayload.subtitles` straight off the resolved stream instead.
 
 ## Using the resolved URL
 
@@ -125,7 +121,7 @@ Pass `sourceUrl` directly to any HLS player or downloader. Many CDNs require the
 // hls.js
 const hls = new Hls();
 hls.loadSource(stream.sourceUrl);
-// hls.js doesn't support custom headers on fetch — serve through your HTTP server instead
+// hls.js doesn't support custom headers on fetch: serve through your HTTP server instead
 
 // ffmpeg
 // ffmpeg -i "url" -headers "Referer: ..." output.mp4
@@ -133,6 +129,34 @@ hls.loadSource(stream.sourceUrl);
 // React Native / Video
 <Video source={{ uri: stream.sourceUrl, headers: stream.headers }} />
 ```
+
+## Downloading to disk
+
+The SDK includes built-in download utilities. HLS anime streams are downloaded by fetching segments and muxing with `ffmpeg`; direct MP4s stream straight to disk. Manga chapters are packaged as `.zip` archives.
+
+```ts
+import { downloadVideo, downloadMangaChapter } from 'ani-sdk';
+
+// Anime: resolveStream → downloadVideo
+const animeResult = await animeProvider.resolveStream(eps[0].id, 'sub');
+if (animeResult.type === 'video') {
+  const { outputPath, fileSize } = await downloadVideo(animeResult.streams, './episode-1.mp4', {
+    onProgress: ({ phase, detail }) => console.log(`[${phase}] ${detail ?? ''}`),
+  });
+  console.log(`Saved ${fileSize} bytes → ${outputPath}`);
+}
+
+// Manga: resolveStream → downloadMangaChapter
+const mangaResult = await mangaProvider.resolveStream(chapters[0].id);
+if (mangaResult.type === 'manga') {
+  const { pageCount, outputPath } = await downloadMangaChapter(mangaResult.pages, './ch-1.zip', {
+    onProgress: ({ downloaded, total }) => console.log(`${downloaded}/${total}`),
+  });
+  console.log(`Packed ${pageCount} pages → ${outputPath}`);
+}
+```
+
+Pass the full `streams` array to `downloadVideo` and it tries each candidate in order, falling back automatically on failure. See [Downloads](/docs/download/) for the full API including batch downloads and low-level HLS helpers.
 
 ## Swapping providers
 
@@ -146,7 +170,8 @@ const provider = new AllmangaProvider(new HttpClient());
 
 ## Next steps
 
-- [Browse providers](/docs/providers/) — AllManga, Gogoanime, Anikoto, Goyabu
-- [Run the HTTP server](/docs/http-server/) — call ani-sdk from any language
+- [Browse providers](/docs/providers/): AllManga, Gogoanime, Anikoto, Goyabu
+- [Downloads](/docs/download/): save episodes as MP4 and chapters as ZIP
+- [Run the HTTP server](/docs/http-server/): call ani-sdk from any language
 - [Full API reference](/docs/api-reference/)
 - [Add a provider](/docs/contributing/)

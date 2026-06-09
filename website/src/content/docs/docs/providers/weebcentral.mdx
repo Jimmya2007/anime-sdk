@@ -8,11 +8,10 @@ The `WeebcentralProvider` scrapes `weebcentral.com`. It provides a wide range of
 ## Usage
 
 ```ts
-import { HttpClient, WeebcentralProvider, DomRegistry } from 'ani-sdk';
+import { HttpClient, WeebcentralProvider } from 'ani-sdk';
 
 const http = new HttpClient();
-const domParser = DomRegistry.getParser();
-const provider = new WeebcentralProvider(http, domParser);
+const provider = new WeebcentralProvider(http);
 
 const results = await provider.search('Frieren');
 const chapters = await provider.fetchContentUnits(results[0].id);

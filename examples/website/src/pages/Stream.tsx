@@ -4,6 +4,125 @@ import { useQuery } from '@tanstack/react-query';
 import Hls from 'hls.js';
 import * as api from '../api';
 
+// ─── Download button with SSE progress ────────────────────────────────────────
+
+type DownloadPhase = 'idle' | 'active' | 'done' | 'error';
+
+function DownloadButton({
+  provider,
+  unitId,
+  language,
+  type,
+}: {
+  provider: string;
+  unitId: string;
+  language: string;
+  type: 'video' | 'manga';
+}) {
+  const [phase, setPhase] = useState<DownloadPhase>('idle');
+  const [label, setLabel] = useState('');
+  const esRef = useRef<EventSource | null>(null);
+
+  const stop = () => {
+    esRef.current?.close();
+    esRef.current = null;
+  };
+
+  useEffect(() => stop, []);
+
+  const start = () => {
+    if (phase === 'active') {
+      stop();
+      setPhase('idle');
+      return;
+    }
+
+    const progressPath =
+      type === 'video'
+        ? `/download/video/progress?provider=${provider}&unitId=${encodeURIComponent(unitId)}&language=${language}`
+        : `/download/manga/chapter/progress?provider=${provider}&unitId=${encodeURIComponent(unitId)}`;
+    const filePath = type === 'video' ? '/download/video/file' : '/download/manga/chapter/file';
+
+    setPhase('active');
+    setLabel('connecting…');
+
+    const es = new EventSource(`${api.API}${progressPath}`);
+    esRef.current = es;
+
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data) as Record<string, unknown>;
+      if (data.type === 'progress') {
+        if (type === 'manga') {
+          setLabel(`${data.downloaded}/${data.total} pages`);
+        } else {
+          const detail = data.detail as string | undefined;
+          setLabel(detail ?? (data.phase as string));
+        }
+      } else if (data.type === 'complete') {
+        stop();
+        setPhase('done');
+        setLabel('');
+        const a = document.createElement('a');
+        a.href = `${api.API}${filePath}?token=${data.token}`;
+        a.click();
+        setTimeout(() => setPhase('idle'), 3000);
+      } else if (data.type === 'error') {
+        stop();
+        setPhase('error');
+        setLabel((data.message as string | undefined) ?? 'failed');
+        setTimeout(() => setPhase('idle'), 4000);
+      }
+    };
+
+    es.onerror = () => {
+      stop();
+      setPhase('error');
+      setLabel('connection failed');
+      setTimeout(() => setPhase('idle'), 3000);
+    };
+  };
+
+  if (phase === 'idle') {
+    return (
+      <button
+        onClick={start}
+        className="text-xs tracking-widest text-[#444] transition-colors hover:text-[#888]"
+      >
+        {type === 'manga' ? 'DOWNLOAD ZIP' : 'DOWNLOAD'}
+      </button>
+    );
+  }
+
+  if (phase === 'done') {
+    return <span className="text-xs tracking-widest text-[#2a6]">SAVED</span>;
+  }
+
+  if (phase === 'error') {
+    return (
+      <button
+        onClick={() => setPhase('idle')}
+        title={label}
+        className="text-xs tracking-widest text-red-900 transition-colors hover:text-red-700"
+      >
+        FAILED ✕
+      </button>
+    );
+  }
+
+  // active
+  return (
+    <div className="flex items-center gap-3">
+      <span className="max-w-[200px] truncate text-xs text-[#555]">{label}</span>
+      <button
+        onClick={start}
+        className="text-xs tracking-widest text-[#333] transition-colors hover:text-red-900"
+      >
+        CANCEL
+      </button>
+    </div>
+  );
+}
+
 function Player({
   stream,
   subtitles,
@@ -282,6 +401,9 @@ export default function Stream() {
         {data?.type === 'manga' && data.pages && (
           <>
             <MangaReader pages={data.pages} />
+            <div className="flex items-center justify-end border-t border-[#1a1a1a] px-1 py-2">
+              <DownloadButton provider={provider} unitId={unitId} language={lang} type="manga" />
+            </div>
             {availableLangs.length > 1 && (
               <div className="flex items-center gap-2 border-t border-[#1a1a1a] px-1 py-2">
                 <span className="text-xs tracking-widest text-[#444]">LANG</span>
@@ -362,8 +484,11 @@ export default function Stream() {
       {/* Source selector */}
       {streams.length > 0 && (
         <div className="border-t border-[#1a1a1a]">
-          <div className="px-1 py-2 text-xs tracking-widest text-[#444]">
-            SOURCES <span className="text-[#333]">({streams.length})</span>
+          <div className="flex items-center justify-between px-1 py-2">
+            <span className="text-xs tracking-widest text-[#444]">
+              SOURCES <span className="text-[#333]">({streams.length})</span>
+            </span>
+            <DownloadButton provider={provider} unitId={unitId} language={lang} type="video" />
           </div>
           {streams.map((s, i) => {
             let displayUrl = s.sourceUrl;
@@ -378,31 +503,50 @@ export default function Stream() {
             } catch {}
 
             return (
-              <button
+              <div
                 key={i}
-                onClick={() => setActiveIdx(i)}
-                className={`group flex w-full items-start gap-3 border-b border-[#141414] px-2 py-3 text-left transition-colors hover:bg-[#111] ${i === activeIdx ? 'bg-[#0f0f0f]' : ''}`}
+                className={`group flex w-full items-start gap-3 border-b border-[#141414] px-2 py-3 transition-colors hover:bg-[#111] ${i === activeIdx ? 'bg-[#0f0f0f]' : ''}`}
               >
-                <span
-                  className={`mt-0.5 shrink-0 text-xs ${i === activeIdx ? 'text-white' : 'text-[#333]'}`}
+                <button
+                  onClick={() => setActiveIdx(i)}
+                  className="flex min-w-0 flex-1 items-start gap-3 text-left"
                 >
-                  {i === activeIdx ? '●' : '○'}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 text-xs text-[#ccc]">
-                    Server {i + 1}
-                    <span className="ml-2 text-[#666]">
-                      [{s.isHLS ? 'HLS' : 'MP4'}] {s.quality}
-                      {s.language ? `  ${s.language}` : ''}
-                    </span>
-                  </div>
-                  <div
-                    className={`truncate text-xs ${i === activeIdx ? 'text-[#4a9eff]' : 'text-[#444] group-hover:text-[#666]'}`}
+                  <span
+                    className={`mt-0.5 shrink-0 text-xs ${i === activeIdx ? 'text-white' : 'text-[#333]'}`}
                   >
-                    {displayUrl}
+                    {i === activeIdx ? '●' : '○'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 text-xs text-[#ccc]">
+                      Server {i + 1}
+                      <span className="ml-2 text-[#666]">
+                        [{s.isHLS ? 'HLS' : 'MP4'}] {s.quality}
+                        {s.language ? `  ${s.language}` : ''}
+                      </span>
+                    </div>
+                    <div
+                      className={`truncate text-xs ${i === activeIdx ? 'text-[#4a9eff]' : 'text-[#444] group-hover:text-[#666]'}`}
+                    >
+                      {displayUrl}
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+                <a
+                  href={s.sourceUrl}
+                  download={!s.isHLS}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={
+                    s.isHLS
+                      ? 'Open HLS manifest (use downloadVideo() to save as MP4)'
+                      : 'Download MP4'
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-0.5 shrink-0 text-xs text-[#333] transition-colors hover:text-[#888]"
+                >
+                  {s.isHLS ? '↗' : '↓'}
+                </a>
+              </div>
             );
           })}
         </div>

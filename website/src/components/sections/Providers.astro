@@ -98,10 +98,10 @@ const providers = [
 </style>
 
 <section id="providers" class="hline">
-  <div class="flex">
+  <div class="flex flex-col sm:flex-row">
     <div
-      class="flex flex-col px-10 py-8"
-      style="width: 280px; flex-shrink: 0; border-right: 1px solid var(--border);"
+      class="flex flex-col border-b px-8 py-6 sm:w-[280px] sm:flex-shrink-0 sm:border-r sm:border-b-0"
+      style="border-color: var(--border);"
     >
       <h2 class="mb-2 text-[28px] font-bold tracking-tight">Providers.</h2>
       <p class="text-[13px] leading-relaxed" style="color: var(--muted);">
@@ -111,11 +111,11 @@ const providers = [
     </div>
 
     <div class="relative flex-1">
-      <div class="provider-scroll overflow-y-auto" style="max-height: 175px;">
+      <div class="provider-scroll overflow-y-auto" style="max-height: 225px;">
         {
           providers.map((p, i) => (
             <div
-              class="flex flex-wrap items-center gap-x-6 gap-y-2 px-8 py-4"
+              class="flex flex-wrap items-start gap-x-6 gap-y-2 px-8 py-4"
               style={i > 0 ? 'border-top: 1px solid var(--border)' : ''}
             >
               <div style="min-width: 110px; width: 110px;">
@@ -126,12 +126,12 @@ const providers = [
               </div>
 
               <p
-                class="flex-1 text-[12px] leading-relaxed"
-                style="color: var(--muted); min-width: 160px;"
+                class="flex-1 text-[12px] leading-relaxed sm:min-w-[180px]"
+                style="color: var(--muted);"
                 set:html={p.description}
               />
 
-              <div class="flex flex-shrink-0 items-center gap-2">
+              <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-shrink-0">
                 <span class="badge" style={p.methodStyle}>
                   {p.method}
                 </span>
@@ -143,9 +143,7 @@ const providers = [
                     {t}
                   </span>
                 ))}
-              </div>
 
-              <div class="flex flex-shrink-0 gap-1.5">
                 {p.languages.map((l) => (
                   <span class="badge badge-ok">{l}</span>
                 ))}

@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-const API = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
+export const API = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
 const get = (path: string, params: Record<string, string>) =>
   fetch(`${API}${path}?${new URLSearchParams(params)}`).then((r) => {

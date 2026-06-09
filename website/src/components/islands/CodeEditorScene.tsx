@@ -115,7 +115,7 @@ export default function CodeEditorScene() {
             fontFamily: '"JetBrains Mono", monospace',
           }}
         >
-          TypeScript — ani-sdk
+          TypeScript / ani-sdk
         </span>
       </div>
       <div

@@ -10,35 +10,31 @@ const faqs = [
   },
   {
     q: 'Does it work in the browser?',
-    a: 'No. ani-sdk requires Node 20+ or Bun. It uses crypto.subtle for AES-CTR decryption and shells out to curl as a fallback transport — neither is available in a browser context. For browser clients, run the HTTP server and call it over HTTP.',
+    a: 'No. ani-sdk requires Node 20+ or Bun. It uses crypto.subtle for AES-CTR decryption and shells out to curl as a fallback transport: neither is available in a browser context. For browser clients, run the HTTP server and call it over HTTP.',
   },
   {
     q: 'What happens when a provider goes down?',
-    a: 'Each provider is independently swappable. If one source changes its API or goes offline, you swap the provider import — the three calls (search, fetchContentUnits, resolveStream) stay identical. The live E2E test suite catches upstream changes automatically.',
-  },
-  {
-    q: 'Do I need FlareSolverrClient for basic use?',
-    a: "No. None of the built-in providers (AnimeParadise, AllManga, Gogoanime, Anikoto, Goyabu) require FlareSolverrClient. It's an optional transport for custom providers that target Cloudflare or DDoS-Guard protected sites.",
+    a: 'Each provider is independently swappable. If one source changes its API or goes offline, you swap the provider import: the three calls (search, fetchContentUnits, resolveStream) stay identical. The live E2E test suite catches upstream changes automatically.',
   },
   {
     q: 'What does resolveStream actually return?',
-    a: "A ResolvedMediaStream discriminated union — all current providers return type: 'video'. The streams array holds IVideoPayload objects: each has a sourceUrl, an isHLS boolean, a quality string, and optional headers the CDN requires. See the API reference for the full types.",
+    a: "A ResolvedMediaStream discriminated union: all current providers return type: 'video'. The streams array holds IVideoPayload objects: each has a sourceUrl, an isHLS boolean, a quality string, and optional headers the CDN requires. See the API reference for the full types.",
   },
   {
     q: 'Can I add my own provider?',
     a: 'Yes. Extend BaseProvider, implement the three methods, re-export from src/index.ts, and add one live E2E test. The contributing guide walks through each step with code examples.',
   },
   {
-    q: 'Does ani-sdk support downloading?',
-    a: 'No — ani-sdk returns stream URLs. Downloading is out of scope. Feed the resolved URL to ffmpeg, yt-dlp, or any other tool that accepts HLS or direct video URLs.',
+    q: 'Does ani-sdk support downloading to disk?',
+    a: 'Yes. Use downloadVideo to save an anime episode as MP4, or downloadMangaChapter to save a manga chapter as a ZIP. Both are exported from ani-sdk. The HTTP server also exposes /download/video and /download/manga/chapter endpoints with SSE-based progress streaming.',
   },
   {
     q: 'What is the difference between sub, dub, and raw?',
-    a: "sub = original audio with subtitles (default). dub = audio dubbed into another language (usually English). raw = original audio with no subtitles. fetchContentUnits returns one unified episode list — each unit's availableLanguages array tells you which of these it can be played in. Pick the translation when you call resolveStream; providers that don't support the requested language fall back to sub.",
+    a: "sub = original audio with subtitles (default). dub = audio dubbed into another language (usually English). raw = original audio with no subtitles. fetchContentUnits returns one unified episode list: each unit's availableLanguages array tells you which of these it can be played in. Pick the translation when you call resolveStream; providers that don't support the requested language fall back to sub.",
   },
   {
     q: 'How do I get subtitle tracks?',
-    a: 'When a provider exposes external subtitles (currently AnimeParadise), IVideoPayload.subtitles carries ISubtitleTrack[] (url, language, label, format). With proxy: true on startServer, those URLs are already rewritten through /proxy with the right Content-Type — hand them straight to a <track> element on a <video crossOrigin="anonymous">. You can also call /tracks (or provider.fetchUnitTracks) for the same data without resolving the playable stream.',
+    a: 'When a provider exposes external subtitles (currently AnimeParadise), IVideoPayload.subtitles carries ISubtitleTrack[] (url, language, label, format). With proxy: true on startServer, those URLs are already rewritten through /proxy with the right Content-Type: hand them straight to a <track> element on a <video crossOrigin="anonymous">. You can also call /tracks (or provider.fetchUnitTracks) for the same data without resolving the playable stream.',
   },
   {
     q: 'Does the SDK cache anything?',
@@ -46,7 +42,11 @@ const faqs = [
   },
   {
     q: 'How are providers tested?',
-    a: 'Each provider has a live E2E test that searches a real show, resolves a real stream, fetches a segment ~5 seconds in, and runs ffmpeg to extract a PNG frame. The assertion is that the frame is larger than 1 KB. No mocking — the point is to catch upstream site changes.',
+    a: 'Each provider has a live E2E test that searches a real show, resolves a real stream, fetches a segment ~5 seconds in, and runs ffmpeg to extract a PNG frame. The assertion is that the frame is larger than 1 KB. No mocking; the point is to catch upstream site changes.',
+  },
+  {
+    q: 'Do I need FlareSolverrClient for basic use?',
+    a: "No. None of the built-in providers (AnimeParadise, AllManga, Gogoanime, Anikoto, Goyabu) require FlareSolverrClient. It's an optional transport for custom providers that target Cloudflare or DDoS-Guard protected sites.",
   },
 ];
 ---

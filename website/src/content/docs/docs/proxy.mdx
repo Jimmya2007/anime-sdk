@@ -24,7 +24,7 @@ startServer({
 That's it. Three things happen automatically:
 
 1. A `/proxy` endpoint becomes active.
-2. Every `sourceUrl` in anime `/stream` responses and every URL in `imageUrls` for manga `/stream` responses is rewritten to go through `/proxy`, with the required headers encoded in the URL. Your frontend uses these URLs as-is — no header forwarding needed.
+2. Every `sourceUrl` in anime `/stream` responses and every URL in `imageUrls` for manga `/stream` responses is rewritten to go through `/proxy`, with the required headers encoded in the URL. Your frontend uses these URLs as-is: no header forwarding needed.
 3. Every subtitle `url` returned in `/stream` or `/tracks` responses is rewritten through `/proxy` too, with a `ct=text/vtt` hint so the proxy forces the right `Content-Type` even when the upstream CDN serves `application/octet-stream`.
 
 ## How stream URLs are rewritten
@@ -67,13 +67,13 @@ The response includes `Access-Control-Allow-Origin: *` and passes through the up
 
 ### HLS manifest rewriting
 
-When the upstream response is an HLS manifest (`.m3u8` or `Content-Type: application/vnd.apple.mpegurl`), the proxy rewrites every URI in it — segment URLs, sub-playlist URLs, `#EXT-X-KEY` encryption key URLs, `#EXT-X-MAP` initialization URIs — to also go through `/proxy`. The `h` param is preserved on every rewritten URI, so the full header chain propagates automatically.
+When the upstream response is an HLS manifest (`.m3u8` or `Content-Type: application/vnd.apple.mpegurl`), the proxy rewrites every URI in it: segment URLs, sub-playlist URLs, `#EXT-X-KEY` encryption key URLs, `#EXT-X-MAP` initialization URIs: to also go through `/proxy`. The `h` param is preserved on every rewritten URI, so the full header chain propagates automatically.
 
 This means an HLS player (e.g. [hls.js](https://github.com/video-dev/hls.js)) only needs to load the proxy URL for the master playlist. All subsequent requests are handled transparently.
 
 ### Subtitle proxying
 
-Subtitle URLs returned in `IVideoPayload.subtitles` and `IUnitTracks.subtitles` are rewritten the same way, with `ct=text/vtt` appended for VTT tracks. That ensures the browser parses the response as WebVTT even when the upstream CDN claims `application/octet-stream` (common with anizara/megastatics/etc.). Hand the rewritten URL straight to a `<track>` element — no `crossorigin` shenanigans needed beyond setting `crossOrigin="anonymous"` on the `<video>`:
+Subtitle URLs returned in `IVideoPayload.subtitles` and `IUnitTracks.subtitles` are rewritten the same way, with `ct=text/vtt` appended for VTT tracks. That ensures the browser parses the response as WebVTT even when the upstream CDN claims `application/octet-stream` (common with anizara/megastatics/etc.). Hand the rewritten URL straight to a `<track>` element: no `crossorigin` shenanigans needed beyond setting `crossOrigin="anonymous"` on the `<video>`:
 
 ```tsx
 <video crossOrigin="anonymous" controls>
@@ -99,7 +99,7 @@ function Player({ sourceUrl, isHLS }: { sourceUrl: string; isHLS: boolean }) {
     const v = ref.current!;
     if (isHLS && Hls.isSupported()) {
       const hls = new Hls();
-      hls.loadSource(sourceUrl); // proxy URL — just works
+      hls.loadSource(sourceUrl); // proxy URL: just works
       hls.attachMedia(v);
       return () => hls.destroy();
     }
@@ -126,7 +126,7 @@ All other API routes (`/search`, `/content`, `/stream`, `/tracks`) also include 
 
 <Aside type="caution">
   The proxy will forward any URL with any headers to the upstream server. It is intended for local
-  development and trusted environments — do not expose it to the public internet without adding
+  development and trusted environments: do not expose it to the public internet without adding
   authentication via the `auth` option.
 </Aside>
 
@@ -140,4 +140,4 @@ const h = btoa(JSON.stringify(headers));
 const proxyUrl = `http://localhost:3000/proxy?url=${encodeURIComponent(streamUrl)}&h=${encodeURIComponent(h)}`;
 ```
 
-Or use the server's rewritten `sourceUrl` directly — it already has everything encoded.
+Or use the server's rewritten `sourceUrl` directly: it already has everything encoded.

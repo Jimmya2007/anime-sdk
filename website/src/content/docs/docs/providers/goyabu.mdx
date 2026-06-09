@@ -52,26 +52,29 @@ if (result.type === 'video') {
 
 ## Language
 
-All content on Goyabu is Brazilian Portuguese (raw audio, no subtitles). Content units report `availableLanguages: ['sub']` because that's the `ContentLanguage` type's closest match, but the audio is PT-BR only.
+Goyabu is a Brazilian Portuguese site. The language reported per unit depends on whether the show is dubbed:
 
-The `language` parameter on `resolveStream` is ignored.
+- Shows whose media ID contains `"dublado"` report `availableLanguages: ['dub']`: the audio is PT-BR dub.
+- All other shows report `availableLanguages: ['sub']`: original Japanese audio, no subtitles (the "sub" here refers to the content type, not the presence of subtitle tracks).
+
+The `language` parameter on `resolveStream` is ignored; stream resolution is the same regardless.
 
 ## How it works
 
-1. **Search** — GET `{baseUrl}/?s={query}`. Searches for `article.boxAN` cards; extracts the `href` (must include `/anime/`) as the ID and reads the title from `.title`, `h3`, or `h2`.
+1. **Search**: GET `{baseUrl}/?s={query}`. Searches for `article.boxAN` cards; extracts the `href` (must include `/anime/`) as the ID and reads the title from `.title`, `h3`, or `h2`.
 
-2. **Episodes** — GET the show page. Tries up to five regex patterns to extract a JS array (`allEpisodes`, `episodes`, `episodios`, etc.) from the inline `<script>` blocks. Each array entry is expected to have `episodio` (episode number) and `link` (content unit ID). If no JS array is found, falls back to parsing `<a>` elements with `/?p=` or `/episode/` in the href.
+2. **Episodes**: GET the show page. Tries up to five regex patterns to extract a JS array (`allEpisodes`, `episodes`, `episodios`, etc.) from the inline `<script>` blocks. Each array entry is expected to have `episodio` (episode number) and `link` (content unit ID). If no JS array is found, falls back to parsing `<a>` elements with `/?p=` or `/episode/` in the href.
 
-3. **Stream resolution** — GET the episode page. Extracts `playersData = [...]` from the page HTML as a JSON literal; each object in the array with a `url` field matching `blogger.com/video.g` is collected. Each Blogger URL is passed to `BloggerExtractor.extract()`:
+3. **Stream resolution**: GET the episode page. Extracts `playersData = [...]` from the page HTML as a JSON literal; each object in the array with a `url` field matching `blogger.com/video.g` is collected. Each Blogger URL is passed to `BloggerExtractor.extract()`:
    - Fetch the Blogger embed page to extract `FdrFJe` (session ID) and `cfb2h` (build hash).
    - POST to `https://www.blogger.com/_/BloggerVideoPlayerUi/data/batchexecute` with the `WcwnYd` RPC.
    - Parse the response: walk the `wrb.fr` / `WcwnYd` entries, find the stream array, prefer `itag=22` (720p) over `itag=18` (360p).
    - Falls back to a raw regex scan for `googlevideo.com` URLs if structured parsing yields nothing.
 
-4. **Direct stream fallback** — if no Blogger URLs are found or all fail, the provider scans the episode page HTML directly for `"file":` patterns referencing `.m3u8` or `.mp4`.
+4. **Direct stream fallback**: if no Blogger URLs are found or all fail, the provider scans the episode page HTML directly for `"file":` patterns referencing `.m3u8` or `.mp4`.
 
 ## Important caveats
 
-- **`googlevideo.com` URLs are time-limited** — they expire and are IP-tied. Do not cache them. Each playback session needs a fresh `resolveStream` call.
+- **`googlevideo.com` URLs are time-limited**: they expire and are IP-tied. Do not cache them. Each playback session needs a fresh `resolveStream` call.
 - A `Chrome/120` User-Agent is set automatically if not already configured.
 - Does not require `FlareSolverrClient`.

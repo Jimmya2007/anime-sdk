@@ -1,8 +1,17 @@
 import * as http from 'node:http';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { Readable } from 'node:stream';
 import { BaseProvider } from '../providers/BaseProvider.js';
 import { ContentLanguage, IUnitTracks, ResolvedMediaStream, SdkCache } from '../types/index.js';
 import { proxifySubtitleUrl } from '../utils/subtitles.js';
+import {
+  downloadVideo,
+  downloadMangaPage,
+  downloadMangaChapter,
+  detectImageExtension,
+} from '../download/index.js';
 
 export interface ServerOptions {
   providers: BaseProvider[];
@@ -127,6 +136,100 @@ function proxyifyTracks(tracks: IUnitTracks, proxyBase: string): IUnitTracks {
 export function startServer(options: ServerOptions): http.Server {
   const { providers, port = 3000, auth, proxy = false, cache } = options;
   const proxyBase = `http://localhost:${port}/proxy`;
+
+  // Token → completed download, cleaned up after 10 minutes or on serve
+  const pendingDownloads = new Map<
+    string,
+    {
+      filePath: string;
+      tmpDir: string;
+      filename: string;
+    }
+  >();
+
+  function storePending(filePath: string, tmpDir: string, filename: string): string {
+    const token = crypto.randomUUID();
+    pendingDownloads.set(token, { filePath, tmpDir, filename });
+    setTimeout(
+      () => {
+        const info = pendingDownloads.get(token);
+        if (info) {
+          try {
+            fs.unlinkSync(info.filePath);
+          } catch {
+            /* ignore */
+          }
+          try {
+            fs.rmdirSync(info.tmpDir);
+          } catch {
+            /* ignore */
+          }
+          pendingDownloads.delete(token);
+        }
+      },
+      10 * 60 * 1000,
+    );
+    return token;
+  }
+
+  function servePending(
+    res: http.ServerResponse,
+    token: string | null,
+    contentType: string,
+  ): boolean {
+    if (!token) {
+      err(res, 400, 'Missing param: token');
+      return true;
+    }
+    const info = pendingDownloads.get(token);
+    if (!info) {
+      err(res, 404, 'Download expired or not found');
+      return true;
+    }
+    pendingDownloads.delete(token);
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(info.filePath);
+    } catch {
+      err(res, 500, 'File missing after download');
+      return true;
+    }
+    res.writeHead(200, {
+      ...CORS,
+      'Content-Type': contentType,
+      'Content-Length': stat.size,
+      'Content-Disposition': `attachment; filename="${info.filename}"`,
+    });
+    const rs = fs.createReadStream(info.filePath);
+    const cleanup = () => {
+      try {
+        fs.unlinkSync(info.filePath);
+      } catch {
+        /* ignore */
+      }
+      try {
+        fs.rmdirSync(info.tmpDir);
+      } catch {
+        /* ignore */
+      }
+    };
+    rs.on('end', cleanup);
+    rs.on('error', cleanup);
+    rs.pipe(res);
+    return true;
+  }
+
+  function openSse(res: http.ServerResponse): (data: unknown) => void {
+    res.writeHead(200, {
+      ...CORS,
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    });
+    return (data) => {
+      if (!res.writableEnded) res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+  }
 
   async function cached<T>(key: string, compute: () => Promise<T>): Promise<T> {
     if (!cache) return compute();
@@ -344,6 +447,313 @@ export function startServer(options: ServerOptions): http.Server {
         );
         if (proxy) tracks = proxyifyTracks(tracks, proxyBase);
         return json(res, 200, tracks);
+      }
+
+      // ── Download: Video — SSE progress ───────────────────────────────
+      if (url.pathname === '/download/video/progress') {
+        const unitId = q.get('unitId');
+        const provider = findProvider(q.get('provider'));
+        const language = q.get('language') as ContentLanguage | null;
+        if (!unitId) return err(res, 400, 'Missing param: unitId');
+        if (!provider) return err(res, 400, 'Missing or unknown param: provider');
+
+        const send = openSse(res);
+        try {
+          send({ type: 'progress', phase: 'resolving', detail: 'Resolving stream…' });
+          const stream = await cached(`stream:${provider.id}:${unitId}:${language ?? ''}`, () =>
+            provider.resolveStream(unitId, language ?? undefined),
+          );
+          if (stream.type !== 'video') {
+            send({ type: 'error', message: `Content is not video (type: ${stream.type})` });
+            res.end();
+            return;
+          }
+          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+          const safeUnit = unitId.replace(/[^a-zA-Z0-9_-]/g, '_');
+          const filename = `${provider.id}_${safeUnit}.mp4`;
+          const tmpFile = path.join(tmpDir, filename);
+          try {
+            await downloadVideo(stream.streams, tmpFile, {
+              timeoutMs: 1_200_000,
+              onProgress: ({ phase, detail }) => send({ type: 'progress', phase, detail }),
+            });
+            send({ type: 'complete', token: storePending(tmpFile, tmpDir, filename) });
+          } catch (dlErr) {
+            try {
+              fs.unlinkSync(tmpFile);
+            } catch {
+              /* ignore */
+            }
+            try {
+              fs.rmdirSync(tmpDir);
+            } catch {
+              /* ignore */
+            }
+            send({
+              type: 'error',
+              message: dlErr instanceof Error ? dlErr.message : String(dlErr),
+            });
+          }
+        } catch (e) {
+          send({ type: 'error', message: e instanceof Error ? e.message : String(e) });
+        }
+        res.end();
+        return;
+      }
+
+      // ── Download: Video — serve completed file ────────────────────────
+      if (url.pathname === '/download/video/file') {
+        servePending(res, q.get('token'), 'video/mp4');
+        return;
+      }
+
+      // ── Download: Manga Chapter — SSE progress ────────────────────────
+      if (url.pathname === '/download/manga/chapter/progress') {
+        const unitId = q.get('unitId');
+        const provider = findProvider(q.get('provider'));
+        if (!unitId) return err(res, 400, 'Missing param: unitId');
+        if (!provider) return err(res, 400, 'Missing or unknown param: provider');
+
+        const send = openSse(res);
+        try {
+          send({ type: 'progress', downloaded: 0, total: 0 });
+          const stream = await cached(`stream:${provider.id}:${unitId}:`, () =>
+            provider.resolveStream(unitId),
+          );
+          if (stream.type !== 'manga') {
+            send({ type: 'error', message: `Content is not manga (type: ${stream.type})` });
+            res.end();
+            return;
+          }
+          const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+          const safeUnit = unitId.replace(/[^a-zA-Z0-9_-]/g, '_');
+          const filename = `${provider.id}_${safeUnit}.zip`;
+          const tmpFile = path.join(tmpDir, filename);
+          try {
+            await downloadMangaChapter(stream.pages, tmpFile, {
+              onProgress: ({ downloaded, total }) => send({ type: 'progress', downloaded, total }),
+            });
+            send({ type: 'complete', token: storePending(tmpFile, tmpDir, filename) });
+          } catch (dlErr) {
+            try {
+              fs.unlinkSync(tmpFile);
+            } catch {
+              /* ignore */
+            }
+            try {
+              fs.rmdirSync(tmpDir);
+            } catch {
+              /* ignore */
+            }
+            send({
+              type: 'error',
+              message: dlErr instanceof Error ? dlErr.message : String(dlErr),
+            });
+          }
+        } catch (e) {
+          send({ type: 'error', message: e instanceof Error ? e.message : String(e) });
+        }
+        res.end();
+        return;
+      }
+
+      // ── Download: Manga Chapter — serve completed file ────────────────
+      if (url.pathname === '/download/manga/chapter/file') {
+        servePending(res, q.get('token'), 'application/zip');
+        return;
+      }
+
+      // ── Download: Video ───────────────────────────────────────────────
+      if (url.pathname === '/download/video') {
+        const unitId = q.get('unitId');
+        const provider = findProvider(q.get('provider'));
+        const language = q.get('language') as ContentLanguage | null;
+        if (!unitId) return err(res, 400, 'Missing param: unitId');
+        if (!provider) return err(res, 400, 'Missing or unknown param: provider');
+
+        let stream = await cached(`stream:${provider.id}:${unitId}:${language ?? ''}`, () =>
+          provider.resolveStream(unitId, language ?? undefined),
+        );
+        if (stream.type !== 'video') {
+          return err(res, 400, `Content is not video (type: ${stream.type})`);
+        }
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+        const tmpFile = path.join(tmpDir, `${provider.id}_${unitId.replace(/\//g, '_')}.mp4`);
+
+        try {
+          await downloadVideo(stream.streams, tmpFile, { timeoutMs: 1_200_000 });
+
+          const stat = fs.statSync(tmpFile);
+          const safeUnit = unitId.replace(/[^a-zA-Z0-9_-]/g, '_');
+          res.writeHead(200, {
+            ...CORS,
+            'Content-Type': 'video/mp4',
+            'Content-Length': stat.size,
+            'Content-Disposition': `attachment; filename="${provider.id}_${safeUnit}.mp4"`,
+          });
+
+          const readStream = fs.createReadStream(tmpFile);
+          readStream.pipe(res);
+          readStream.on('end', () => {
+            try {
+              fs.unlinkSync(tmpFile);
+              fs.rmdirSync(tmpDir);
+            } catch {
+              /* ignore */
+            }
+          });
+          readStream.on('error', () => {
+            try {
+              fs.unlinkSync(tmpFile);
+              fs.rmdirSync(tmpDir);
+            } catch {
+              /* ignore */
+            }
+          });
+        } catch (dlErr) {
+          try {
+            fs.unlinkSync(tmpFile);
+            fs.rmdirSync(tmpDir);
+          } catch {
+            /* ignore */
+          }
+          throw dlErr;
+        }
+        return;
+      }
+
+      // ── Download: Manga Page ────────────────────────────────────────────
+      if (url.pathname === '/download/manga/page') {
+        const unitId = q.get('unitId');
+        const provider = findProvider(q.get('provider'));
+        const pageParam = q.get('page');
+        if (!unitId) return err(res, 400, 'Missing param: unitId');
+        if (!provider) return err(res, 400, 'Missing or unknown param: provider');
+
+        const pageIndex = pageParam !== null ? parseInt(pageParam, 10) : 0;
+        if (isNaN(pageIndex) || pageIndex < 0) {
+          return err(res, 400, 'Invalid page index');
+        }
+
+        let stream = await cached(`stream:${provider.id}:${unitId}:`, () =>
+          provider.resolveStream(unitId),
+        );
+        if (stream.type !== 'manga') {
+          return err(res, 400, `Content is not manga (type: ${stream.type})`);
+        }
+        if (pageIndex >= stream.pages.imageUrls.length) {
+          return err(
+            res,
+            400,
+            `Page index ${pageIndex} out of range (0-${stream.pages.imageUrls.length - 1})`,
+          );
+        }
+
+        // Proxy the image to the client
+        const imgUrl = stream.pages.imageUrls[pageIndex];
+        const imgHeaders: Record<string, string> = {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          ...(stream.pages.headers ?? {}),
+        };
+
+        const abortCtrl = new AbortController();
+        req.on('close', () => abortCtrl.abort());
+
+        const upstream = await fetch(imgUrl, {
+          headers: imgHeaders,
+          redirect: 'follow',
+          signal: abortCtrl.signal,
+        });
+        if (!upstream.ok) {
+          return err(res, 502, `Upstream returned ${upstream.status}`);
+        }
+
+        const ct = upstream.headers.get('content-type') ?? 'image/jpeg';
+        const ext = detectImageExtension(ct);
+        const paddedPage = String(pageIndex + 1).padStart(3, '0');
+        const safeUnit = unitId.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        const outHeaders: Record<string, string> = {
+          ...CORS,
+          'Content-Type': ct,
+          'Content-Disposition': `attachment; filename="${provider.id}_${safeUnit}_page_${paddedPage}${ext}"`,
+        };
+        const cl = upstream.headers.get('content-length');
+        if (cl) outHeaders['Content-Length'] = cl;
+
+        res.writeHead(200, outHeaders);
+        if (upstream.body) {
+          const readable = Readable.fromWeb(
+            upstream.body as Parameters<typeof Readable.fromWeb>[0],
+          );
+          readable.on('error', () => {});
+          res.on('close', () => readable.destroy());
+          readable.pipe(res);
+        } else {
+          res.end();
+        }
+        return;
+      }
+
+      // ── Download: Manga Chapter (ZIP) ──────────────────────────────────
+      if (url.pathname === '/download/manga/chapter') {
+        const unitId = q.get('unitId');
+        const provider = findProvider(q.get('provider'));
+        if (!unitId) return err(res, 400, 'Missing param: unitId');
+        if (!provider) return err(res, 400, 'Missing or unknown param: provider');
+
+        let stream = await cached(`stream:${provider.id}:${unitId}:`, () =>
+          provider.resolveStream(unitId),
+        );
+        if (stream.type !== 'manga') {
+          return err(res, 400, `Content is not manga (type: ${stream.type})`);
+        }
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ani-sdk-dl-'));
+        const tmpFile = path.join(tmpDir, `${provider.id}_${unitId.replace(/\//g, '_')}.zip`);
+
+        try {
+          await downloadMangaChapter(stream.pages, tmpFile, { timeoutMs: 300_000 });
+
+          const stat = fs.statSync(tmpFile);
+          const safeUnit = unitId.replace(/[^a-zA-Z0-9_-]/g, '_');
+          res.writeHead(200, {
+            ...CORS,
+            'Content-Type': 'application/zip',
+            'Content-Length': stat.size,
+            'Content-Disposition': `attachment; filename="${provider.id}_${safeUnit}.zip"`,
+          });
+
+          const readStream = fs.createReadStream(tmpFile);
+          readStream.pipe(res);
+          readStream.on('end', () => {
+            try {
+              fs.unlinkSync(tmpFile);
+              fs.rmdirSync(tmpDir);
+            } catch {
+              /* ignore */
+            }
+          });
+          readStream.on('error', () => {
+            try {
+              fs.unlinkSync(tmpFile);
+              fs.rmdirSync(tmpDir);
+            } catch {
+              /* ignore */
+            }
+          });
+        } catch (dlErr) {
+          try {
+            fs.unlinkSync(tmpFile);
+            fs.rmdirSync(tmpDir);
+          } catch {
+            /* ignore */
+          }
+          throw dlErr;
+        }
+        return;
       }
 
       return err(res, 404, 'Not found');

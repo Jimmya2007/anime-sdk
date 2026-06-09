@@ -1,9 +1,6 @@
 # ani-sdk
 
-A small TypeScript SDK for searching anime and manga, listing episodes/chapters, and resolving
-direct stream/page URLs (with subtitle tracks). Seven providers, a handful of
-reusable embed extractors, a pluggable HTTP transport, and an optional HTTP
-server with a stream/subtitle proxy and a bring-your-own cache hook.
+A small TypeScript SDK for searching anime and manga, listing episodes/chapters, and resolving direct stream/page URLs (with subtitle tracks). Nine providers, a handful of reusable embed extractors, a pluggable HTTP transport, and an optional HTTP server with a stream/subtitle proxy and a bring-your-own cache hook.
 
 ## Providers
 
@@ -137,12 +134,14 @@ The E2E suite is intentionally not mocked. Each test:
    Clássico for Goyabu).
 2. Picks a mainline entry, fetches episodes, resolves a stream.
 3. Walks the candidate list via `captureStreamScreenshot`, which:
-   - probes a URL with a Range GET (Content-Type + MP4 `ftyp` magic) to tell
-     embed pages from direct video bytes,
-   - scrapes embed HTML for an `.m3u8`/`.mp4` URL when needed,
-   - downloads an HLS segment ~5s in and runs ffmpeg locally on it
-     (PNG-wrapped segments are stripped before decoding), or
-   - hands plain MP4 URLs straight to ffmpeg with `-user_agent`/`-referer`,
+
+- probes a URL with a Range GET (Content-Type + MP4 `ftyp` magic) to tell
+  embed pages from direct video bytes,
+- scrapes embed HTML for an `.m3u8`/`.mp4` URL when needed,
+- downloads an HLS segment ~5s in and runs ffmpeg locally on it
+  (PNG-wrapped segments are stripped before decoding), or
+- hands plain MP4 URLs straight to ffmpeg with `-user_agent`/`-referer`,
+
 4. Asserts the resulting PNG is >1KB before passing.
 
 Screenshots land in `scratch/screenshots/screenshot_<provider>.png`.

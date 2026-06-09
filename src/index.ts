@@ -32,5 +32,8 @@ export * from './providers/MangapillProvider.js';
 export * from './utils/crypto.js';
 export * from './utils/subtitles.js';
 
+// Download
+export * from './download/index.js';
+
 // HTTP server
 export * from './server/index.js';

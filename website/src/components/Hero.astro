@@ -1,11 +1,13 @@
 ---
 import HeroBackground from './islands/HeroBackground';
 import HeroStats from './HeroStats.astro';
+import Notification from './islands/Notification';
 ---
 
 <!-- HERO -->
 <section style="position: relative; overflow: hidden; min-height: 560px;">
   <HeroBackground client:load />
+  <Notification client:load />
 
   <!-- Vignette: bottom fade -->
   <div
@@ -37,13 +39,12 @@ import HeroStats from './HeroStats.astro';
       <span class="gradient-text">We'll handle the streams.</span>
     </h1>
     <p class="mb-8 text-[14.5px] leading-[1.75]" style="color: var(--muted); max-width: 460px;">
-      Direct video URLs from the anime sites people actually watch on. Drop ani-sdk into your mobile
-      app, website, desktop client, CLI, or server — or run the built-in HTTP server and call it
-      from anywhere. No headless browser, no scrapers to maintain.
+      A TypeScript library for resolving anime streams and manga pages across 9 providers. Use it as
+      a Node module, run the built-in HTTP server, or download episodes and chapters to disk.
     </p>
     <div class="flex items-center gap-4">
       <a
-        href="#install"
+        href="/docs"
         class="bg-white px-5 py-2.5 text-[13px] font-semibold text-black transition-colors hover:bg-zinc-100"
       >
         Get started →

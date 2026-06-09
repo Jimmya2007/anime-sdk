@@ -15,10 +15,10 @@ const serverStartCode = `<code><span class="kw">import</span> <span class="pun">
 const serverCurlCode = `<code><span class="cm"># search shows or manga</span>
 curl <span class="str">'localhost:3000/search?q=Frieren&amp;provider=mangadex'</span>
 
-<span class="cm"># content — episodes or chapters</span>
+<span class="cm"># content: episodes or chapters</span>
 curl <span class="str">'localhost:3000/content?mediaId=...&amp;provider=mangadex'</span>
 
-<span class="cm"># resolve — streams or image pages</span>
+<span class="cm"># resolve: streams or image pages</span>
 curl <span class="str">'localhost:3000/stream?unitId=...&amp;provider=mangadex'</span></code>`;
 
 const serverAuthCode = `<code><span class="fn">startServer</span><span class="pun">({</span>
@@ -61,7 +61,7 @@ const serverAuthCode = `<code><span class="fn">startServer</span><span class="pu
       </div>
       <pre class="font-mono text-[12px] leading-[1.85] text-zinc-300" set:html={serverCurlCode} />
       <p class="mt-4 text-[11.5px] leading-relaxed" style="color: var(--muted);">
-        Any client that speaks HTTP — React Native, Swift, Kotlin, Flutter, Python, you name it.
+        Any client that speaks HTTP: React Native, Swift, Kotlin, Flutter, Python, you name it.
       </p>
     </div>
 
@@ -72,7 +72,7 @@ const serverAuthCode = `<code><span class="fn">startServer</span><span class="pu
       </div>
       <pre class="font-mono text-[12px] leading-[1.85] text-zinc-300" set:html={serverAuthCode} />
       <p class="mt-4 text-[11.5px] leading-relaxed" style="color: var(--muted);">
-        Skip auth entirely if it's local. The SDK works standalone too — no server required.
+        Skip auth entirely if it's local. The SDK works standalone too. No server required.
       </p>
     </div>
   </div>

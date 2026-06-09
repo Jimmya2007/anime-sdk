@@ -1,9 +1,9 @@
 ---
 title: Providers
-description: Overview of the nine live-tested anime and manga providers in ani-sdk.
+description: Overview of the 9 live-tested anime and manga providers in ani-sdk.
 ---
 
-A provider is a site-specific adapter that maps search queries and episode/chapter IDs to direct stream or image URLs. All nine ship with ani-sdk and are verified on every release.
+A provider is a site-specific adapter that maps search queries and episode/chapter IDs to direct stream or image URLs. All 9 ship with ani-sdk and are verified on every release.
 
 ## Available providers
 
@@ -28,7 +28,7 @@ All extend `BaseProvider` and expose identical method signatures. `AnimeParadise
 import { GogoanimeProvider } from 'ani-sdk';
 const provider = new GogoanimeProvider(client);
 
-// After — nothing else changes
+// After: nothing else changes
 import { AllmangaProvider } from 'ani-sdk';
 const provider = new AllmangaProvider(client);
 
@@ -51,7 +51,7 @@ These tests run without mocking. If a provider's upstream site changes its API o
 
 ## Selecting a provider
 
-**AllManga** is the best choice for breadth — widest catalogue, sub + dub, stable GraphQL API.
+**AllManga** is the best choice for breadth: widest catalogue, sub + dub, stable GraphQL API.
 
 **AnimeParadise** is the best choice when you want **external subtitle tracks** that the SDK can hand straight to a `<track>` element (the others bake subs into the video).
 
@@ -63,7 +63,7 @@ These tests run without mocking. If a provider's upstream site changes its API o
 
 **Goyabu** is the only option for Brazilian Portuguese content.
 
-**MangaDex** is the gold standard for Manga — huge database, reliable JSON API, and clean images.
+**MangaDex** is the gold standard for Manga: huge database, reliable JSON API, and clean images.
 
 **WeebCentral** and **MangaPill** are reliable fallbacks for Manga titles not found on MangaDex.
 

@@ -16,10 +16,10 @@ const server = startServer({
     new GogoanimeProvider(new HttpClient({ timeoutMs: 10_000 })),
   ],
   port: 3000, // default: 3000
-  proxy: true, // optional — enables /proxy and rewrites stream + subtitle URLs through it
+  proxy: true, // optional: enables /proxy and rewrites stream + subtitle URLs through it
 });
 
-// server is an http.Server — you can call server.close() to shut it down
+// server is an http.Server: you can call server.close() to shut it down
 ```
 
 The server logs `ani-sdk server listening on http://localhost:3000` when ready.
@@ -58,7 +58,7 @@ Response: `IMediaSearchResult[]`
 
 ### `GET /content`
 
-List episodes for a show or chapters for a manga. One call returns the unified, language-agnostic list — each unit advertises its translations.
+List episodes for a show or chapters for a manga. One call returns the unified, language-agnostic list: each unit advertises its translations.
 
 | Param      | Required | Description               |
 | ---------- | -------- | ------------------------- |
@@ -167,7 +167,107 @@ Response: `IUnitTracks`
 }
 ```
 
-Returns **501** if the provider doesn't implement `fetchUnitTracks` — read subtitles from `/stream`'s response instead.
+Returns **501** if the provider doesn't implement `fetchUnitTracks`: read subtitles from `/stream`'s response instead.
+
+### `GET /download/video/progress` (SSE)
+
+Resolve and download an episode to the server's disk, streaming live progress events via [Server-Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events).
+
+| Param      | Required | Description                |
+| ---------- | -------- | -------------------------- |
+| `unitId`   | ✓        | `id` from a content result |
+| `provider` | ✓        | Provider ID                |
+| `language` |          | `sub` \| `dub` \| `raw`    |
+
+```sh
+curl -N 'localhost:3000/download/video/progress?unitId=...&provider=allmanga&language=sub'
+```
+
+Events arrive as `data: <JSON>\n\n`. Three event shapes:
+
+```jsonc
+// While downloading:
+{ "type": "progress", "phase": "downloading", "detail": "Segment 12/45" }
+{ "type": "progress", "phase": "muxing",      "detail": "Muxing segments to MP4 via ffmpeg" }
+
+// On success: retrieve the file with /download/video/file?token=<token>:
+{ "type": "complete", "token": "550e8400-e29b-41d4-a716-446655440000" }
+
+// On failure:
+{ "type": "error", "message": "downloadVideo exhausted all candidates…" }
+```
+
+Progress `phase` values in order: `resolving` → `downloading` → `muxing` → `complete`.
+
+### `GET /download/video/file`
+
+Retrieve a completed video download by token. **One-time**: the file is deleted after the first successful response.
+
+| Param   | Required | Description                                              |
+| ------- | -------- | -------------------------------------------------------- |
+| `token` | ✓        | Token from a `/download/video/progress` `complete` event |
+
+Response: `video/mp4` with `Content-Disposition: attachment`. Tokens expire after **10 minutes**.
+
+```sh
+curl -OJ 'localhost:3000/download/video/file?token=550e8400-…'
+```
+
+### `GET /download/manga/chapter/progress` (SSE)
+
+Same as `/download/video/progress` but for manga chapters. Downloads all pages and packages them as a ZIP archive.
+
+| Param      | Required | Description                |
+| ---------- | -------- | -------------------------- |
+| `unitId`   | ✓        | `id` from a content result |
+| `provider` | ✓        | Provider ID                |
+
+```jsonc
+{ "type": "progress", "downloaded": 8, "total": 24 }
+{ "type": "complete", "token": "…" }
+{ "type": "error",    "message": "…" }
+```
+
+### `GET /download/manga/chapter/file`
+
+Retrieve a completed chapter ZIP by token (one-time, 10-minute expiry).
+
+Response: `application/zip` with `Content-Disposition: attachment`.
+
+### `GET /download/video` (direct)
+
+Download a video without progress streaming. Resolves the stream, downloads to a server temp file via `downloadVideo`, then serves the completed MP4 in one response. Suitable for programmatic use when SSE is inconvenient.
+
+| Param      | Required | Description             |
+| ---------- | -------- | ----------------------- |
+| `unitId`   | ✓        | Unit ID                 |
+| `provider` | ✓        | Provider ID             |
+| `language` |          | `sub` \| `dub` \| `raw` |
+
+Response: `video/mp4` with `Content-Disposition: attachment`. Timeout: 20 minutes.
+
+### `GET /download/manga/page`
+
+Download a single manga page image.
+
+| Param      | Required | Description                       |
+| ---------- | -------- | --------------------------------- |
+| `unitId`   | ✓        | Unit ID                           |
+| `provider` | ✓        | Provider ID                       |
+| `page`     |          | 0-based page index (default: `0`) |
+
+Response: image file (`image/jpeg`, `image/png`, etc.) with `Content-Disposition: attachment`.
+
+### `GET /download/manga/chapter` (direct)
+
+Download an entire chapter as a ZIP without progress streaming.
+
+| Param      | Required | Description |
+| ---------- | -------- | ----------- |
+| `unitId`   | ✓        | Unit ID     |
+| `provider` | ✓        | Provider ID |
+
+Response: `application/zip` with `Content-Disposition: attachment`.
 
 ## Authentication
 
@@ -200,7 +300,7 @@ interface SdkCache {
 }
 ```
 
-A plain `Map` satisfies it — bring whatever store you like (Redis, SQLite, edge KV):
+A plain `Map` satisfies it. Bring whatever store you like (Redis, SQLite, edge KV):
 
 ```ts
 const store = new Map();
@@ -219,12 +319,12 @@ startServer({
 
 Keys are namespaced so different endpoints can have different policies:
 
-| Prefix     | Key shape                             | Notes                                                              |
-| ---------- | ------------------------------------- | ------------------------------------------------------------------ |
-| `search:`  | `search:<providerId>:<query>`         | Stable; safe to cache for long.                                    |
-| `content:` | `content:<providerId>:<mediaId>`      | Stable; safe to cache for long.                                    |
-| `stream:`  | `stream:<providerId>:<unitId>:<lang>` | Stream URLs may carry signed expiries — apply a short TTL or skip. |
-| `tracks:`  | `tracks:<providerId>:<unitId>:<lang>` | Cheap to compute when the provider supports it; cache freely.      |
+| Prefix     | Key shape                             | Notes                                                             |
+| ---------- | ------------------------------------- | ----------------------------------------------------------------- |
+| `search:`  | `search:<providerId>:<query>`         | Stable; safe to cache for long.                                   |
+| `content:` | `content:<providerId>:<mediaId>`      | Stable; safe to cache for long.                                   |
+| `stream:`  | `stream:<providerId>:<unitId>:<lang>` | Stream URLs may carry signed expiries: apply a short TTL or skip. |
+| `tracks:`  | `tracks:<providerId>:<unitId>:<lang>` | Cheap to compute when the provider supports it; cache freely.     |
 
 `get` returns `undefined` for a miss; any other value (including `null`) is treated as a hit and served as-is. To skip caching a specific endpoint, inspect the prefix in your `set` and bail out.
 

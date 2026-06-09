@@ -119,7 +119,7 @@ export default function TerminalScene() {
             fontFamily: '"JetBrains Mono", monospace',
           }}
         >
-          Terminal — zsh
+          Terminal / zsh
         </span>
       </div>
       <div

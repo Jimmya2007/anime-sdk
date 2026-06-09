@@ -42,14 +42,14 @@ interface IMediaSearchResult {
 
 ### `IContentUnit`
 
-Returned by `provider.fetchContentUnits()`. Represents a single episode or chapter in a unified, language-agnostic list — the caller picks a translation at `resolveStream` time.
+Returned by `provider.fetchContentUnits()`. Represents a single episode or chapter in a unified, language-agnostic list: the caller picks a translation at `resolveStream` time.
 
 ```ts
 interface IContentUnit {
   id: string; // opaque, pass to resolveStream
   title: string;
   number: number; // episode/chapter number (may be fractional, e.g. 1.5)
-  availableLanguages: ContentLanguage[]; // e.g. ['sub', 'dub']
+  availableLanguages?: ContentLanguage[]; // e.g. ['sub', 'dub']: omitted if unknown
   availableSubtitles?: ISubtitleAvailability[]; // optional, list-time metadata
   availableQualities?: IVideoPayload['quality'][]; // optional
 }
@@ -79,6 +79,7 @@ Returned by the optional `provider.fetchUnitTracks()`. Lets a UI introspect trac
 interface IUnitTracks {
   subtitles: ISubtitleTrack[];
   qualities: IVideoPayload['quality'][];
+  headers?: Record<string, string>; // forwarded to the subtitle/stream fetcher when present
 }
 ```
 
@@ -99,7 +100,7 @@ interface IVideoPayload {
 
 ### `SdkCache`
 
-Minimal pluggable cache contract — bring whatever store you want (`Map`, Redis, SQLite, edge KV). Both methods may be sync or async; the SDK awaits either way.
+Minimal pluggable cache contract: bring whatever store you want (`Map`, Redis, SQLite, edge KV). Both methods may be sync or async; the SDK awaits either way.
 
 ```ts
 interface SdkCache {
@@ -121,7 +122,7 @@ interface IMangaPayload {
 
 ### `ResolvedMediaStream`
 
-Returned by `provider.resolveStream()`. A discriminated union — always check `type` before accessing the payload.
+Returned by `provider.resolveStream()`. A discriminated union: always check `type` before accessing the payload.
 
 ```ts
 type ResolvedMediaStream =
@@ -130,7 +131,7 @@ type ResolvedMediaStream =
   | { type: 'live'; stream: IVideoPayload };
 ```
 
-All current providers return `type: 'video'`. The `streams` array is sorted best-first by the provider.
+Anime providers return `type: 'video'`; manga providers return `type: 'manga'`. The `streams` array on video results is sorted best-first by the provider.
 
 ---
 
@@ -173,7 +174,7 @@ requestUrl(url: string): string  // applies proxy rewriting to a URL
 
 ### Proxy modes
 
-**`prepend`** — strips the protocol from the target and prepends the proxy base:
+**`prepend`**: strips the protocol from the target and prepends the proxy base:
 
 ```
 proxyUrl: 'https://proxy.example.com'
@@ -181,7 +182,7 @@ target:   'https://cdn.site.com/video.m3u8'
 result:   'https://proxy.example.com/cdn.site.com/video.m3u8'
 ```
 
-**`query`** — passes the target as a query param:
+**`query`**: passes the target as a query param:
 
 ```
 proxyUrl:        'https://proxy.example.com/fetch'
@@ -343,7 +344,7 @@ class DomRegistry {
 
 Global singleton parser used by all providers that scrape HTML. The default is `BrowserDomParser`, which wraps `globalThis.DOMParser`.
 
-`linkedom` is registered automatically on import in Node environments — no setup is needed. `DomRegistry.register()` is only needed when you want to swap in a fully custom parser.
+`linkedom` is registered automatically on import in Node environments: no setup is needed. `DomRegistry.register()` is only needed when you want to swap in a fully custom parser.
 
 **Custom parser:**
 
@@ -451,7 +452,118 @@ interface ServerOptions {
 }
 ```
 
-Launches a Node `http.Server`. Returns the server instance so you can call `server.close()`. All requests must be `GET`; all responses are JSON. See [HTTP Server](/docs/http-server/) for route documentation and [Stream Proxy](/docs/proxy/) for the proxy behaviour.
+Launches a Node `http.Server`. Returns the server instance so you can call `server.close()`. All requests must be `GET`; all responses are JSON. See [HTTP Server](/docs/http-server/) for full route documentation and [Stream Proxy](/docs/proxy/) for the proxy behaviour.
+
+Routes: `/search`, `/content`, `/stream`, `/tracks`, `/proxy` (when `proxy: true`), and download routes `/download/video`, `/download/video/progress`, `/download/video/file`, `/download/manga/page`, `/download/manga/chapter`, `/download/manga/chapter/progress`, `/download/manga/chapter/file`.
+
+---
+
+## Download utilities
+
+Functions for saving resolved streams to disk. Requires Node 20+; `ffmpeg` on `PATH` for HLS video downloads only.
+
+### `downloadVideo`
+
+```ts
+function downloadVideo(
+  streams: IVideoPayload | IVideoPayload[],
+  outputPath: string,
+  options?: DownloadVideoOptions,
+): Promise<DownloadVideoResult>;
+```
+
+Downloads an anime episode to a `.mp4` file. Accepts a single stream or an array: if an array, each candidate is tried in order until one succeeds. Throws with a combined error message if all fail.
+
+- **HLS streams**: downloads segments, strips PNG-wrapped bytes, concatenates into a `.ts` file, then calls `ffmpeg -c copy` to mux to MP4.
+- **Direct MP4**: streams to disk via `fetch`.
+
+```ts
+interface DownloadVideoOptions {
+  onProgress?: (info: { phase: string; detail?: string }) => void;
+  timeoutMs?: number; // default 300_000 (5 min)
+}
+
+interface DownloadVideoResult {
+  outputPath: string;
+  stream: IVideoPayload; // the candidate that succeeded
+  fileSize: number; // bytes
+}
+```
+
+Progress `phase` values: `'resolving'` → `'downloading'` → `'muxing'` → `'complete'`.
+
+### `downloadMangaPage`
+
+```ts
+function downloadMangaPage(
+  pages: IMangaPayload,
+  pageIndex: number,
+  outputDir: string,
+  options?: DownloadMangaPageOptions,
+): Promise<DownloadMangaPageResult>;
+```
+
+Downloads a single manga page. The filename is auto-generated as `page_<NNN><ext>` where the extension is inferred from the `Content-Type` header.
+
+```ts
+interface DownloadMangaPageOptions {
+  headers?: Record<string, string>; // override the headers on IMangaPayload
+  timeoutMs?: number; // default 30_000
+}
+
+interface DownloadMangaPageResult {
+  outputPath: string;
+  pageIndex: number;
+  fileSize: number;
+  contentType: string;
+}
+```
+
+### `downloadMangaChapter`
+
+```ts
+function downloadMangaChapter(
+  pages: IMangaPayload,
+  outputPath: string,
+  options?: DownloadMangaChapterOptions,
+): Promise<DownloadMangaChapterResult>;
+```
+
+Downloads all pages and packages them as an uncompressed `.zip` archive (STORE method: images are already compressed). No external dependencies.
+
+```ts
+interface DownloadMangaChapterOptions {
+  onProgress?: (info: { downloaded: number; total: number }) => void;
+  timeoutMs?: number; // per page; default 30_000
+}
+
+interface DownloadMangaChapterResult {
+  outputPath: string;
+  pageCount: number;
+  fileSize: number; // total ZIP size in bytes
+}
+```
+
+### HLS helpers
+
+Low-level utilities exported for custom pipelines:
+
+```ts
+// Parse variant playlist URLs from a master playlist
+parseHlsMaster(content: string, baseUrl: string): string[]
+
+// Parse segment descriptors from a media playlist
+parseHlsSegments(content: string, baseUrl: string): Array<{ url: string; duration: number }>
+
+// Infer file extension from Content-Type
+detectImageExtension(contentType: string): string
+
+// CRC-32 checksum (used by the ZIP writer)
+crc32(buf: Buffer): number
+
+// Build an uncompressed ZIP buffer
+createZipBuffer(entries: Array<{ filename: string; data: Buffer }>): Buffer
+```
 
 ---
 
@@ -483,10 +595,10 @@ labelToBcp47(label: string): string
 Exported for use in custom providers.
 
 ```ts
-// AES-CBC decrypt — returns plaintext string
+// AES-CBC decrypt: returns plaintext string
 aesDecrypt(ciphertextBase64: string, keyStr: string, ivStr: string): Promise<string>
 
-// AES-CBC encrypt — returns base64 string
+// AES-CBC encrypt: returns base64 string
 aesEncrypt(plaintext: string, keyStr: string, ivStr: string): Promise<string>
 
 // SHA-256 hash

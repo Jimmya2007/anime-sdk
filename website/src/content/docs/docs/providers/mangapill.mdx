@@ -8,11 +8,10 @@ The `MangapillProvider` scrapes `mangapill.com`. It is known for its efficient l
 ## Usage
 
 ```ts
-import { HttpClient, MangapillProvider, DomRegistry } from 'ani-sdk';
+import { HttpClient, MangapillProvider } from 'ani-sdk';
 
 const http = new HttpClient();
-const domParser = DomRegistry.getParser();
-const provider = new MangapillProvider(http, domParser);
+const provider = new MangapillProvider(http);
 
 const results = await provider.search('Frieren');
 const chapters = await provider.fetchContentUnits(results[0].id);

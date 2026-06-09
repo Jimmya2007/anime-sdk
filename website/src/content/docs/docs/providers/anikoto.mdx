@@ -37,13 +37,3 @@ const dubStream = await provider.resolveStream(units[0].id, 'dub');
   Anikoto is one of the most reliable providers in the SDK for dubbed content. It uses a custom
   extraction logic for the `megaplay.buzz` embed system.
 </Aside>
-
-## Configuration
-
-You can override the base URL if the site moves to a new domain:
-
-```ts
-const provider = new AnikotoProvider(http, {
-  baseUrl: 'https://anikoto.cz', // or another mirror
-});
-```

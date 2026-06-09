@@ -32,14 +32,13 @@ hls<span class="pun">.</span><span class="fn">attachMedia</span><span class="pun
         <h2 class="text-[28px] font-bold tracking-tight">Browser-ready streams.</h2>
       </div>
       <p class="text-[14px]" style="color: var(--muted);">
-        CDNs block cross-origin requests and require custom <code
+        Most stream CDNs require a <code class="font-mono text-[12px]" style="color: var(--accent);"
+          >Referer</code
+        > header browsers can't send freely. Set <code
           class="font-mono text-[12px]"
-          style="color: var(--accent);">Referer</code
-        > headers. Browsers can't set those freely. Enable the proxy and the server handles it — every
-        stream URL <em>and</em> external subtitle URL comes back as a plain URL your player can fetch
-        directly, with the right <code class="font-mono" style="color: var(--accent);"
-          >Content-Type</code
-        > forced on VTT files.
+          style="color: var(--accent);">proxy: true</code
+        > and every URL in the response becomes a plain proxied URL your player can use directly. No header
+        wrangling.
       </p>
     </div>
   </div>
@@ -69,7 +68,7 @@ hls<span class="pun">.</span><span class="fn">attachMedia</span><span class="pun
         Required headers are base64-encoded into the URL. Your frontend uses <code
           class="font-mono"
           style="color: var(--accent);">sourceUrl</code
-        > as-is — no header forwarding needed.
+        > as-is. No header forwarding needed.
       </p>
     </div>
 
@@ -82,7 +81,7 @@ hls<span class="pun">.</span><span class="fn">attachMedia</span><span class="pun
       </div>
       <pre class="font-mono text-[12px] leading-[1.85] text-zinc-300" set:html={proxyPlayerCode} />
       <p class="mt-4 text-[11.5px] leading-relaxed" style="color: var(--muted);">
-        HLS manifest rewriting is recursive — segment URLs, key URLs, and sub-playlist URLs all go
+        HLS manifest rewriting is recursive: segment URLs, key URLs, and sub-playlist URLs all go
         through the proxy. The header chain propagates automatically.
       </p>
     </div>

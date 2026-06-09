@@ -35,7 +35,7 @@
   --sl-content-width: 50rem;
 }
 
-/* Header — one hairline on the <header> element itself (which also carries the
+/* Header: one hairline on the <header> element itself (which also carries the
    .header class); suppress box-shadow and any border on the inner div.header. */
 header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -50,7 +50,7 @@ header .header {
   border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Search — remove all rounded corners */
+/* Search: remove all rounded corners */
 [data-open-modal] {
   border-radius: 0 !important;
 }
@@ -62,7 +62,7 @@ header .header {
   border-radius: 0 !important;
 }
 
-/* Code blocks — ec already places a border on <pre> and <figcaption>; we just
+/* Code blocks: ec already places a border on <pre> and <figcaption>; we just
    need to zero the border-radius, kill any box-shadow, and recolor --ec-brdCol
    to match the rest of the design's hairlines. */
 .expressive-code,

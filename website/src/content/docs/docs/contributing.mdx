@@ -13,7 +13,7 @@ The highest-value contribution. A good target is a site that:
 - Hosts direct HLS or MP4 streams, possibly behind a simple embed layer
 - Covers a language or catalogue not already served by the three existing providers
 
-If the site is Cloudflare-protected, it's still welcome — accept `FlareSolverrClient` as an optional constructor argument and throw a clear error when it's absent.
+If the site is Cloudflare-protected, it's still welcome. Accept `FlareSolverrClient` as an optional constructor argument and throw a clear error when it's absent.
 
 ### Bug fixes for existing providers
 
@@ -21,7 +21,7 @@ Site layouts change. If a provider's scraping logic breaks because the upstream 
 
 ### New extractors
 
-Add one when the embed format is genuinely novel — not handled by `GenericHlsExtractor`, `Mp4UploadExtractor`, `BloggerExtractor`, or `VidstreamingExtractor`. Common cases: new obfuscation schemes (encrypted player config, custom XOR), embed hosts that require a multi-step auth flow, or platforms that gate streams behind a non-standard API.
+Add one when the embed format is genuinely novel: not handled by `GenericHlsExtractor`, `Mp4UploadExtractor`, `BloggerExtractor`, or `VidstreamingExtractor`. Common cases: new obfuscation schemes (encrypted player config, custom XOR), embed hosts that require a multi-step auth flow, or platforms that gate streams behind a non-standard API.
 
 ### Transport and HTTP server improvements
 
@@ -32,7 +32,7 @@ Add one when the embed format is genuinely novel — not handled by `GenericHlsE
 
 ### Unit tests
 
-Edge cases in `HlsUtils.rewriteManifest`, `FlareSolverrClient` response parsing, extractor HTML fixtures, language inference — these are always welcome and run in CI without a network.
+Edge cases in `HlsUtils.rewriteManifest`, `FlareSolverrClient` response parsing, extractor HTML fixtures, language inference: these are always welcome and run in CI without a network.
 
 ---
 
@@ -45,7 +45,7 @@ Edge cases in `HlsUtils.rewriteManifest`, `FlareSolverrClient` response parsing,
 | **UI components or players**         | ani-sdk is a headless library. Rendering is out of scope.                                                                                                                                                                                       |
 | **Login-gated or paywall sites**     | ani-sdk is for publicly accessible streams. Sites that require accounts are out of scope.                                                                                                                                                       |
 | **Caching or rate-limiting layers**  | Those belong in the application layer, not the SDK.                                                                                                                                                                                             |
-| **CLI wrappers or download scripts** | Out of scope — use the HTTP server or call the SDK directly.                                                                                                                                                                                    |
+| **CLI wrappers or download scripts** | Out of scope: use the HTTP server or call the SDK directly.                                                                                                                                                                                     |
 | **Mocked E2E tests**                 | All E2E tests must hit live sites. A provider test that passes with mocks but fails against the real site is worse than no test.                                                                                                                |
 
 ---
@@ -54,9 +54,9 @@ Edge cases in `HlsUtils.rewriteManifest`, `FlareSolverrClient` response parsing,
 
 ani-sdk has three layers:
 
-- **Transport** (`src/transport/`) — `HttpClient`, `DomRegistry`, `HlsUtils`, `FlareSolverrClient`. Rarely needs changes for new providers.
-- **Extractors** (`src/extractors/`) — stateless embed parsers. Add one when an embed platform is genuinely novel.
-- **Providers** (`src/providers/`) — site-specific adapters. This is where most contributions live.
+- **Transport** (`src/transport/`): `HttpClient`, `DomRegistry`, `HlsUtils`, `FlareSolverrClient`. Rarely needs changes for new providers.
+- **Extractors** (`src/extractors/`): stateless embed parsers. Add one when an embed platform is genuinely novel.
+- **Providers** (`src/providers/`): site-specific adapters. This is where most contributions live.
 
 All relative imports in `src/` must include the `.js` extension (`import { X } from './foo.js'`). TypeScript is configured with `module: NodeNext`.
 
@@ -152,7 +152,7 @@ export * from './providers/MyProvider.js';
 
 ### 3. Add a live E2E test
 
-Create `tests/e2e/myprovider.test.ts`. The test must resolve a real stream and pass it to `captureStreamScreenshot` — no mocking allowed. The function walks candidates in order and extracts a frame with ffmpeg.
+Create `tests/e2e/myprovider.test.ts`. The test must resolve a real stream and pass it to `captureStreamScreenshot`: no mocking allowed. The function walks candidates in order and extracts a frame with ffmpeg.
 
 ```ts
 import { describe, it, expect } from 'vitest';
@@ -175,7 +175,7 @@ describe('MyProvider', () => {
       expect(result.type).toBe('video');
       if (result.type !== 'video') return;
 
-      // captureStreamScreenshot(providerId, streams) — accepts IVideoPayload | IVideoPayload[]
+      // captureStreamScreenshot(providerId, streams): accepts IVideoPayload | IVideoPayload[]
       const { outputPath } = await captureStreamScreenshot('myprovider', result.streams);
       const stat = (await import('fs')).statSync(outputPath);
       expect(stat.size).toBeGreaterThan(1024);
@@ -231,7 +231,7 @@ export class MyExtractor extends BaseExtractor {
 
 **Rules:**
 
-- Always return `[]` when the extractor can't handle a URL — never throw.
+- Always return `[]` when the extractor can't handle a URL: never throw.
 - Stay stateless: extractors are constructed fresh by providers per-request.
 - Include `Referer` and `User-Agent` headers in returned payloads when the CDN requires them.
 
@@ -260,7 +260,7 @@ export class MyProvider extends BaseProvider {
 
   public async search(query: string) {
     if (!this.flare) {
-      throw new Error('MyProvider requires FlareSolverrClient — this site is CF-protected');
+      throw new Error('MyProvider requires FlareSolverrClient: this site is CF-protected');
     }
     const res = await this.flare.get(`${this.baseUrl}/search?q=${encodeURIComponent(query)}`);
     // res.text() / res.json() / res.headers / res.url
@@ -308,10 +308,10 @@ npm run build   # tsc → dist/ (ESM, NodeNext)
 - [ ] Accepts `HttpClient` in constructor; optionally accepts provider-specific options via an interface
 - [ ] `search` returns `IMediaSearchResult[]` with `id`, `title`, `catalogType`, `providerId`
 - [ ] `fetchContentUnits` returns `IContentUnit[]` sorted by `number`; each unit sets `availableLanguages` (a non-empty subset of `ContentLanguage`)
-- [ ] `resolveStream` accepts a `language` parameter, returns `ResolvedMediaStream` — at minimum `{ type: 'video', streams: [...] }`
+- [ ] `resolveStream` accepts a `language` parameter, returns `ResolvedMediaStream`: at minimum `{ type: 'video', streams: [...] }`
 - [ ] If the provider has external subtitle tracks, populate `IVideoPayload.subtitles` (use `normalizeSubtitleEntries` from `utils/subtitles.js` to massage upstream shapes)
 - [ ] Optional: implement `fetchUnitTracks` when the provider can describe subtitle/quality availability cheaper than a full `resolveStream`
 - [ ] All imports use `.js` extension
 - [ ] Exported from `src/index.ts`
-- [ ] Live E2E test using `captureStreamScreenshot` — no mocking, 90s timeout
+- [ ] Live E2E test using `captureStreamScreenshot`: no mocking, 90s timeout
 - [ ] CF-protected sites: accepts `FlareSolverrClient` optionally, throws clear error when absent
