@@ -27,7 +27,7 @@ const megaplayCode = `<code><span class="kw">import</span> <span class="pun">{</
     </p>
   </div>
 
-  <div class="hline grid grid-cols-2">
+  <div class="hline md:grid md:grid-cols-2">
     <div class="cell no-bottom show-dots px-10 py-9">
       <div class="mb-5 flex items-center gap-3">
         <span class="badge badge-muted">Install</span>
@@ -50,7 +50,10 @@ const megaplayCode = `<code><span class="kw">import</span> <span class="pun">{</
         . Need a different source? Swap the provider; same three calls.
       </p>
     </div>
-    <div class="cell no-right no-bottom" style="padding:0; position:relative; overflow:hidden;">
+    <div
+      class="cell no-right no-bottom max-md:h-96"
+      style="padding:0; position:relative; overflow:hidden;"
+    >
       <video
         autoplay
         loop
