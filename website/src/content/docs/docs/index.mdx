@@ -3,7 +3,7 @@ title: Getting Started
 description: Install ani-sdk and resolve your first anime stream in minutes.
 ---
 
-ani-sdk is a TypeScript SDK that resolves direct video stream URLs from anime sites and image page URLs from manga sites. It has three layers: HTTP transport, extractors (embed parsers), and providers (site-specific logic). Everything connects through `HttpClient`.
+A small TypeScript SDK for searching anime and manga, listing episodes/chapters, and resolving direct stream/page URLs (with subtitle tracks). Nine providers, a handful of reusable embed extractors, a pluggable HTTP transport, and an optional HTTP server with a stream/subtitle proxy and a bring-your-own cache hook.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ pnpm add ani-sdk
 bun add ani-sdk
 ```
 
-## Three-call pattern
+## How it works
 
 Every provider exposes the same three methods: `search` → `fetchContentUnits` → `resolveStream`.
 
@@ -49,8 +49,7 @@ const pages = await manga.resolveStream(chapters[0].id);
 ```ts
 type ResolvedMediaStream =
   | { type: 'video'; streams: IVideoPayload[] }
-  | { type: 'manga'; pages: IMangaPayload }
-  | { type: 'live'; stream: IVideoPayload };
+  | { type: 'manga'; pages: IMangaPayload };
 ```
 
 Manga providers return `type: 'manga'`, while anime providers return `type: 'video'`. Always check `result.type` before accessing the payload.

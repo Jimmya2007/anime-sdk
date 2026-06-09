@@ -82,8 +82,7 @@ export interface IMangaPayload {
 
 export type ResolvedMediaStream =
   | { type: 'video'; streams: IVideoPayload[] }
-  | { type: 'manga'; pages: IMangaPayload }
-  | { type: 'live'; stream: IVideoPayload };
+  | { type: 'manga'; pages: IMangaPayload };
 
 export interface IDomElement {
   querySelector(selector: string): IDomElement | null;

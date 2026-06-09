@@ -127,8 +127,7 @@ Returned by `provider.resolveStream()`. A discriminated union: always check `typ
 ```ts
 type ResolvedMediaStream =
   | { type: 'video'; streams: IVideoPayload[] }
-  | { type: 'manga'; pages: IMangaPayload }
-  | { type: 'live'; stream: IVideoPayload };
+  | { type: 'manga'; pages: IMangaPayload };
 ```
 
 Anime providers return `type: 'video'`; manga providers return `type: 'manga'`. The `streams` array on video results is sorted best-first by the provider.
