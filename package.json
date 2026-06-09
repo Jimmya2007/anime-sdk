@@ -37,7 +37,7 @@
     "release": "changeset publish",
     "test": "vitest",
     "test:run": "vitest run",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "dependencies": {
     "linkedom": "^0.18.12"
