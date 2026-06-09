@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "lint": "eslint --fix 'src/**/*.{astro,ts,tsx,js}'"
   },
   "dependencies": {
     "@astrojs/react": "^5.0.7",
@@ -23,6 +24,10 @@
     "@tailwindcss/vite": "^4.3.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/parser": "^8.61.0",
+    "astro-eslint-parser": "^1.4.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-tailwindcss": "^3.18.3",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.3"
   }
