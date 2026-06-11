@@ -1,0 +1,86 @@
+# anime-sdk
+
+> A TypeScript SDK for searching anime and manga, listing episodes/chapters, and resolving direct stream/image URLs. Nine live-tested providers, embed extractors, a pluggable HTTP transport, and an optional HTTP server with stream/subtitle proxy and cache.
+
+## Install
+
+```sh
+npm install anime-sdk
+# pnpm add anime-sdk  |  bun add anime-sdk
+```
+
+Requires Node 20+ and `ffmpeg` on PATH (E2E tests / HLS downloads only).
+
+## Core pattern
+
+Every provider exposes the same three methods:
+
+```ts
+import { HttpClient, AllmangaProvider } from 'anime-sdk';
+
+const client = new HttpClient({ timeoutMs: 10_000 });
+const provider = new AllmangaProvider(client);
+
+const shows = await provider.search('Frieren');
+const eps   = await provider.fetchContentUnits(shows[0].id);
+const result = await provider.resolveStream(eps[0].id, 'sub');
+
+if (result.type === 'video') {
+  const { sourceUrl, isHLS, headers, subtitles } = result.streams[0];
+}
+```
+
+`resolveStream` returns a discriminated union: `{ type: 'video'; streams: IVideoPayload[] }` for anime or `{ type: 'manga'; pages: IMangaPayload }` for manga.
+
+## Providers
+
+| ID            | Site              | Content | Languages     | Subtitles |
+| ------------- | ----------------- | ------- | ------------- | --------- |
+| allmanga      | allmanga.to       | ANIME   | sub, dub, raw | no        |
+| animeparadise | animeparadise.moe | ANIME   | sub           | yes (VTT) |
+| gogoanime     | anineko.to        | ANIME   | sub           | no        |
+| anikoto       | anikototv.to      | ANIME   | sub, dub      | yes (VTT) |
+| megaplay      | megaplay.buzz     | ANIME   | sub, dub      | yes (VTT) |
+| goyabu        | goyabu.io         | ANIME   | raw (pt-br)   | no        |
+| mangadex      | mangadex.org      | MANGA   | sub           | no        |
+| weebcentral   | weebcentral.com   | MANGA   | sub           | no        |
+| mangapill     | mangapill.com     | MANGA   | sub           | no        |
+
+Best choices: **allmanga** for breadth (sub+dub, GraphQL), **megaplay** for robust AniList-based search, **mangadex** for manga.
+
+## HTTP Server
+
+```ts
+import { startServer, AllmangaProvider, HttpClient } from 'anime-sdk';
+
+startServer({
+  providers: [new AllmangaProvider(new HttpClient())],
+  port: 3000,
+  proxy: true,           // enables /proxy and rewrites all stream/subtitle URLs
+  cache: { get, set },   // optional: Map, Redis, SQLite, edge KV
+  auth: { token: '…' },  // optional: bearer token
+});
+```
+
+Routes: `GET /search`, `/content`, `/stream`, `/tracks`, `/proxy`, plus SSE download routes `/download/video/progress`, `/download/manga/chapter/progress` and file retrieval routes.
+
+## Downloads
+
+```ts
+import { downloadVideo, downloadMangaChapter } from 'anime-sdk';
+
+// Anime → MP4 (HLS segments muxed with ffmpeg, or direct fetch for MP4 streams)
+const { outputPath, fileSize } = await downloadVideo(result.streams, './episode-1.mp4', {
+  onProgress: ({ phase, detail }) => console.log(phase, detail),
+});
+
+// Manga → ZIP
+const { pageCount } = await downloadMangaChapter(result.pages, './chapter-1.zip', {
+  onProgress: ({ downloaded, total }) => console.log(downloaded, '/', total),
+});
+```
+
+## Optional docs
+
+- [Full documentation](https://anime-sdk.dev/docs/): Getting started, providers, HTTP server, proxy, downloads, API reference
+- [llms-full.txt](https://anime-sdk.dev/llms-full.txt): Complete docs in a single file for LLM ingestion

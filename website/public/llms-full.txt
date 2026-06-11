@@ -1,0 +1,806 @@
+# anime-sdk — Full Documentation
+
+> A TypeScript SDK for searching anime and manga, listing episodes/chapters, and resolving direct stream/image URLs. Nine live-tested providers, embed extractors, a pluggable HTTP transport, and an optional HTTP server with stream/subtitle proxy and cache.
+
+---
+
+## Getting Started
+
+### Requirements
+
+- **Node 20+** or **Bun**: native `fetch` and `crypto.subtle` are required
+- **ffmpeg**: only needed to run the live E2E test suite for anime streams or to download HLS episodes
+
+### Install
+
+```sh
+npm install anime-sdk
+# pnpm add anime-sdk  |  bun add anime-sdk
+```
+
+### How it works
+
+Every provider exposes the same three methods: `search` → `fetchContentUnits` → `resolveStream`.
+
+```ts
+import { HttpClient, AllmangaProvider, MangadexProvider } from 'anime-sdk';
+
+const client = new HttpClient({ timeoutMs: 10_000 });
+
+// Anime
+const anime = new AllmangaProvider(client);
+const shows = await anime.search('Frieren');
+const eps   = await anime.fetchContentUnits(shows[0].id);
+const stream = await anime.resolveStream(eps[0].id, 'sub');
+
+// Manga
+const manga = new MangadexProvider(client);
+const books    = await manga.search('Frieren');
+const chapters = await manga.fetchContentUnits(books[0].id);
+const pages    = await manga.resolveStream(chapters[0].id);
+```
+
+### The resolved stream shape
+
+`resolveStream` returns `ResolvedMediaStream`: a discriminated union on `type`:
+
+```ts
+type ResolvedMediaStream =
+  | { type: 'video'; streams: IVideoPayload[] }
+  | { type: 'manga'; pages: IMangaPayload };
+```
+
+Always check `result.type` before accessing the payload.
+
+Each `IVideoPayload`:
+
+```ts
+interface IVideoPayload {
+  sourceUrl: string;
+  isHLS: boolean;
+  quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
+  language?: ContentLanguage;
+  headers?: Record<string, string>;
+  subtitles?: ISubtitleTrack[];
+}
+
+interface ISubtitleTrack {
+  url: string;
+  language: string;   // BCP-47 (e.g. 'en', 'pt-BR')
+  label: string;      // human-readable ('English')
+  format?: 'vtt' | 'srt' | 'ass';
+}
+```
+
+Each `IMangaPayload`:
+
+```ts
+interface IMangaPayload {
+  imageUrls: string[];
+  headers?: Record<string, string>;
+}
+```
+
+### Sub / dub / raw
+
+`fetchContentUnits` returns one unified episode list. Each `IContentUnit` carries `availableLanguages: ContentLanguage[]`. The translation is chosen at `resolveStream` time:
+
+```ts
+type ContentLanguage = 'sub' | 'dub' | 'raw';
+```
+
+Providers that don't support the requested language fall back to `'sub'`.
+
+### Inspecting tracks without resolving the stream
+
+```ts
+if (provider.fetchUnitTracks) {
+  const { subtitles, qualities } = await provider.fetchUnitTracks(ep.id, 'sub');
+}
+```
+
+Providers without a cheap path leave `fetchUnitTracks` undefined.
+
+### Using the resolved URL
+
+```ts
+// hls.js — no custom headers needed when using the built-in HTTP server proxy
+const hls = new Hls();
+hls.loadSource(stream.sourceUrl);
+hls.attachMedia(videoElement);
+
+// React Native
+<Video source={{ uri: stream.sourceUrl, headers: stream.headers }} />
+
+// ffmpeg
+// ffmpeg -i "url" -headers "Referer: ..." output.mp4
+```
+
+### Swapping providers
+
+```ts
+import { AllmangaProvider } from 'anime-sdk';
+const provider = new AllmangaProvider(new HttpClient());
+// same: search → fetchContentUnits → resolveStream
+```
+
+---
+
+## Providers
+
+All providers extend `BaseProvider` and expose identical method signatures.
+
+### Provider table
+
+| ID            | Site              | Content | Languages     | Subtitles | Method              |
+| ------------- | ----------------- | ------- | ------------- | --------- | ------------------- |
+| allmanga      | allmanga.to       | ANIME   | sub, dub, raw | no        | GraphQL + AES-CTR   |
+| animeparadise | animeparadise.moe | ANIME   | sub           | yes (VTT) | REST API            |
+| gogoanime     | anineko.to        | ANIME   | sub           | no        | HTML scrape + HLS   |
+| anikoto       | anikototv.to      | ANIME   | sub, dub      | yes (VTT) | JSON API + Embed    |
+| megaplay      | megaplay.buzz     | ANIME   | sub, dub      | yes (VTT) | AniList + mapping   |
+| goyabu        | goyabu.io         | ANIME   | raw (pt-br)   | no        | batchexecute RPC    |
+| mangadex      | mangadex.org      | MANGA   | sub           | no        | JSON API            |
+| weebcentral   | weebcentral.com   | MANGA   | sub           | no        | HTML scrape         |
+| mangapill     | mangapill.com     | MANGA   | sub           | no        | HTML scrape         |
+
+**Best choices:**
+- **allmanga**: widest catalogue, sub + dub, stable GraphQL API
+- **animeparadise**: external VTT subtitle tracks, reliable REST API
+- **megaplay**: AniList-based search, most robust for finding shows by official ID
+- **anikoto**: excellent for dubs, reliable HLS with integrated subtitle tracks
+- **goyabu**: the only option for Brazilian Portuguese content
+- **mangadex**: gold standard for manga, huge database, clean JSON API
+
+### Provider IDs (for HTTP server `provider=` param)
+
+```sh
+allmanga, animeparadise, gogoanime, anikoto, megaplay, goyabu, mangadex, weebcentral, mangapill
+```
+
+### AllmangaProvider
+
+Resolves streams from `allmanga.to` via the AllAnime GraphQL endpoint. Supports sub, dub, and raw.
+
+```ts
+const provider = new AllmangaProvider(client);
+// With options:
+const provider = new AllmangaProvider(client, {
+  defaultLanguage: 'dub',
+  baseUrl: 'https://api.allanime.day/api',
+});
+```
+
+Content unit IDs are language-agnostic: `{showId}/{episodeString}`. Always use IDs from `fetchContentUnits`.
+
+**Stream resolution flow:**
+1. Persisted GraphQL query fetches episode sources; response contains a `tobeparsed` field.
+2. AES-CTR decrypt: nonce (bytes 1–12), ciphertext (bytes 13 to end−16), key = SHA-256 of `'Xot36i3lK3:v1'`.
+3. XOR decode: source URLs starting with `--` are hex where each byte XOR'd with `0x38`; `/clock` → `/clock.json`.
+4. Source dispatch: `clock.json` → wixmp/direct links; `.m3u8`/`.mp4` → direct; `mp4upload.com` → `Mp4UploadExtractor`; fallback to `GenericHlsExtractor`.
+5. Streams sorted by quality: mp4upload direct > wixstatic mp4 > HLS m3u8 > other.
+
+### AnimeParadiseProvider
+
+Connects to `animeparadise.moe`. Clean REST API, external VTT subtitle tracks. Implements the optional `fetchUnitTracks` for cheap subtitle metadata.
+
+```ts
+const provider = new AnimeParadiseProvider(new HttpClient());
+const tracks = await provider.fetchUnitTracks(units[0].id);
+// tracks.subtitles: ISubtitleTrack[]
+```
+
+Note: stream links are signed to the requester's IP and expire after a short period.
+
+### MegaPlayProvider
+
+Uses **AniList GraphQL** for search, resolves streams via MegaPlay's AniList ID mapping. Most robust option for finding shows by official ID.
+
+```ts
+const provider = new MegaPlayProvider(new HttpClient(), {
+  baseUrl: 'https://megaplay.buzz', // optional override
+});
+```
+
+Not every AniList show is indexed by MegaPlay; unresolvable shows throw on `resolveStream`.
+
+### Other providers
+
+- **GogoanimeProvider** (`anineko.to`): HTML scrape, vibeplayer embed → `master.m3u8` via `GenericHlsExtractor`. Sub only.
+- **AnikotoProvider** (`anikototv.to`): `anikotoapi.site` for episodes, MegaPlay embed for streams/subtitles. Sub + dub.
+- **GoyabuProvider** (`goyabu.io`): Blogger token from `playersData`, calls Google `batchexecute` via `BloggerExtractor`. Raw (pt-br).
+- **MangadexProvider** (`api.mangadex.org`): Official JSON API. Returns page image arrays per chapter.
+- **WeebcentralProvider** (`weebcentral.com`): HTML scrape for manga.
+- **MangapillProvider** (`mangapill.com`): HTML scrape for manga.
+
+---
+
+## HTTP Server
+
+`startServer` launches a Node `http.Server` exposing SDK operations as HTTP GET routes.
+
+```ts
+import { HttpClient, AllmangaProvider, GogoanimeProvider, startServer } from 'anime-sdk';
+
+const server = startServer({
+  providers: [
+    new AllmangaProvider(new HttpClient()),
+    new GogoanimeProvider(new HttpClient({ timeoutMs: 10_000 })),
+  ],
+  port: 3000,       // default: 3000
+  proxy: true,      // enables /proxy and rewrites all stream + subtitle URLs
+  cache: { get, set }, // optional: Map, Redis, SQLite, edge KV
+  auth: { token: process.env.API_TOKEN! }, // optional bearer token
+});
+// server.close() to shut down
+```
+
+All routes are `GET` only. Errors return `{ error: string }` with the appropriate HTTP status. All responses include `Access-Control-Allow-Origin: *`.
+
+### GET /search
+
+| Param      | Required | Description           |
+| ---------- | -------- | --------------------- |
+| `q`        | ✓        | Search query string   |
+| `provider` | ✓        | Provider ID           |
+
+```sh
+curl 'localhost:3000/search?q=Frieren&provider=allmanga'
+```
+
+Response: `IMediaSearchResult[]`
+
+```json
+[{
+  "id": "frieren-beyond-journeys-end",
+  "title": "Frieren: Beyond Journey's End",
+  "thumbnailUrl": "https://...",
+  "catalogType": "ANIME",
+  "providerId": "allmanga",
+  "availableLanguages": ["sub", "dub"]
+}]
+```
+
+### GET /content
+
+| Param      | Required | Description               |
+| ---------- | -------- | ------------------------- |
+| `mediaId`  | ✓        | `id` from a search result |
+| `provider` | ✓        | Provider ID               |
+
+Response: `IContentUnit[]`
+
+```json
+[{
+  "id": "frieren-beyond-journeys-end/1",
+  "title": "Episode 1",
+  "number": 1,
+  "availableLanguages": ["sub", "dub"]
+}]
+```
+
+### GET /stream
+
+| Param      | Required | Description                |
+| ---------- | -------- | -------------------------- |
+| `unitId`   | ✓        | `id` from a content result |
+| `provider` | ✓        | Provider ID                |
+| `language` |          | `sub` \| `dub` \| `raw`    |
+
+Response: `ResolvedMediaStream`
+
+```json
+{
+  "type": "video",
+  "streams": [{
+    "sourceUrl": "https://cdn.example.com/video.m3u8",
+    "isHLS": true,
+    "quality": "auto",
+    "language": "sub",
+    "headers": { "Referer": "https://provider.com/" },
+    "subtitles": [{ "url": "...", "language": "en", "label": "English", "format": "vtt" }]
+  }]
+}
+```
+
+When `proxy: true`, `sourceUrl` and subtitle `url`s are rewritten through `/proxy`.
+
+### GET /tracks
+
+Inspect subtitle + quality metadata without resolving the stream. Returns **501** if the provider doesn't implement `fetchUnitTracks`.
+
+| Param      | Required | Description                |
+| ---------- | -------- | -------------------------- |
+| `unitId`   | ✓        | `id` from a content result |
+| `provider` | ✓        | Provider ID                |
+| `language` |          | `sub` \| `dub` \| `raw`    |
+
+Response: `IUnitTracks`
+
+```json
+{
+  "subtitles": [{ "url": "...", "label": "English", "language": "en", "format": "vtt" }],
+  "qualities": ["auto"]
+}
+```
+
+### GET /download/video/progress (SSE)
+
+Downloads an episode to the server's disk, streaming progress via Server-Sent Events.
+
+| Param      | Required | Description             |
+| ---------- | -------- | ----------------------- |
+| `unitId`   | ✓        | Unit ID                 |
+| `provider` | ✓        | Provider ID             |
+| `language` |          | `sub` \| `dub` \| `raw` |
+
+Events:
+```jsonc
+{ "type": "progress", "phase": "downloading", "detail": "Segment 12/45" }
+{ "type": "complete", "token": "550e8400-…" }
+{ "type": "error", "message": "…" }
+```
+
+### GET /download/video/file
+
+Retrieve a completed download by token (one-time, 10-min expiry). Response: `video/mp4`.
+
+| Param   | Required | Description                 |
+| ------- | -------- | --------------------------- |
+| `token` | ✓        | Token from `complete` event |
+
+### GET /download/manga/chapter/progress (SSE)
+
+Same pattern as video download. Returns `{ "type": "progress", "downloaded": 8, "total": 24 }`.
+
+### GET /download/manga/chapter/file
+
+ZIP download by token (one-time, 10-min expiry). Response: `application/zip`.
+
+### GET /download/video (direct)
+
+Download video without SSE. Responds with completed MP4. Timeout: 20 minutes.
+
+### GET /download/manga/page
+
+Download a single manga page.
+
+| Param      | Required | Description                       |
+| ---------- | -------- | --------------------------------- |
+| `unitId`   | ✓        | Unit ID                           |
+| `provider` | ✓        | Provider ID                       |
+| `page`     |          | 0-based page index (default: `0`) |
+
+### GET /download/manga/chapter (direct)
+
+Download entire chapter as ZIP without SSE.
+
+### Authentication
+
+```ts
+startServer({ providers: [...], auth: { token: 'mysecret' } });
+// Client:
+curl -H 'Authorization: Bearer mysecret' 'localhost:3000/search?...'
+```
+
+### Caching
+
+```ts
+interface SdkCache {
+  get(key: string): unknown | Promise<unknown>;
+  set(key: string, value: unknown): void | Promise<void>;
+}
+```
+
+Cache key prefixes: `search:`, `content:`, `stream:`, `tracks:`. A plain `Map` satisfies the interface.
+
+### HTTP server error codes
+
+| Status | Meaning                                 |
+| ------ | --------------------------------------- |
+| 400    | Missing or unknown query parameter      |
+| 401    | Missing or invalid bearer token         |
+| 404    | Unknown route                           |
+| 405    | Non-GET request                         |
+| 500    | Provider threw an error                 |
+| 501    | Provider doesn't implement `fetchUnitTracks` |
+
+### Calling from other languages
+
+**Python:**
+```python
+import httpx
+base = 'http://localhost:3000'
+shows = httpx.get(f'{base}/search', params={'q': 'Frieren', 'provider': 'allmanga'}).json()
+eps   = httpx.get(f'{base}/content', params={'mediaId': shows[0]['id'], 'provider': 'allmanga'}).json()
+data  = httpx.get(f'{base}/stream',  params={'unitId': eps[0]['id'], 'provider': 'allmanga'}).json()
+url   = data['streams'][0]['sourceUrl']
+```
+
+**Swift / iOS:**
+```swift
+let url = URL(string: "http://localhost:3000/search?q=Frieren&provider=allmanga")!
+let (data, _) = try await URLSession.shared.data(from: url)
+```
+
+---
+
+## Stream Proxy
+
+When `proxy: true`, three things happen:
+1. `/proxy` endpoint becomes active.
+2. Every `sourceUrl` in anime `/stream` and every `imageUrl` in manga `/stream` is rewritten through `/proxy`.
+3. Every subtitle URL in `/stream` and `/tracks` is rewritten with `ct=text/vtt`.
+
+```
+GET /proxy?url=<encoded-url>[&h=<base64-headers>][&ct=<content-type>]
+```
+
+| Param | Required | Description                                     |
+| ----- | -------- | ----------------------------------------------- |
+| `url` | ✓        | URL-encoded target URL                          |
+| `h`   |          | Base64-encoded JSON of request headers          |
+| `ct`  |          | Override response `Content-Type`                |
+
+When the upstream is an HLS manifest, `/proxy` rewrites every URI within it to also go through `/proxy`, preserving the `h` param. An HLS player only needs to load the proxy URL for the master playlist.
+
+**Playing in the browser (hls.js):**
+```tsx
+import Hls from 'hls.js';
+// proxy: true → sourceUrl is a plain URL, no xhrSetup or custom headers needed
+const hls = new Hls();
+hls.loadSource(sourceUrl);
+hls.attachMedia(videoElement);
+```
+
+**Subtitle `<track>` elements:**
+```tsx
+<video crossOrigin="anonymous" controls>
+  {stream.subtitles?.map((t) => (
+    <track key={t.url} kind="subtitles" src={t.url} srcLang={t.language} label={t.label} />
+  ))}
+</video>
+```
+
+**Proxy URL construction (manual):**
+```ts
+const h = btoa(JSON.stringify({ Referer: 'https://provider.com/' }));
+const proxyUrl = `http://localhost:3000/proxy?url=${encodeURIComponent(streamUrl)}&h=${encodeURIComponent(h)}`;
+```
+
+Or use `proxifySubtitleUrl(proxyBase, track, opts?)` exported from `anime-sdk`.
+
+**Security note:** The proxy forwards any URL to the upstream. Use `auth` to protect it from public exposure.
+
+---
+
+## Downloads
+
+### downloadVideo
+
+```ts
+import { downloadVideo } from 'anime-sdk';
+
+const { outputPath, fileSize } = await downloadVideo(result.streams, './episode-1.mp4', {
+  onProgress: ({ phase, detail }) => console.log(`[${phase}] ${detail ?? ''}`),
+  timeoutMs: 300_000, // default 5 min
+});
+```
+
+- HLS: segments → `.ts` → `ffmpeg -c copy` → `.mp4`
+- Direct MP4: streaming fetch
+- Array input: tries candidates in order; throws if all fail
+
+Progress phases: `resolving` → `downloading` → `muxing` → `complete`
+
+### downloadMangaChapter
+
+```ts
+import { downloadMangaChapter } from 'anime-sdk';
+
+const { pageCount } = await downloadMangaChapter(result.pages, './chapter-1.zip', {
+  onProgress: ({ downloaded, total }) => console.log(`${downloaded}/${total}`),
+  timeoutMs: 30_000, // per page
+});
+```
+
+Pages saved as `001.jpg`, `002.png`, etc. inside an uncompressed ZIP (STORE method, no ffmpeg needed).
+
+### downloadMangaPage
+
+```ts
+import { downloadMangaPage } from 'anime-sdk';
+
+const { outputPath } = await downloadMangaPage(result.pages, 0, './chapter-1/');
+// Saves ./chapter-1/page_001.jpg  (extension auto-detected from Content-Type)
+```
+
+### Batch download
+
+```ts
+const results = await Promise.allSettled(
+  episodes.slice(0, 5).map(async (ep) => {
+    const stream = await provider.resolveStream(ep.id, 'sub');
+    if (stream.type !== 'video') return;
+    return downloadVideo(stream.streams, `./ep-${ep.number}.mp4`);
+  }),
+);
+```
+
+---
+
+## API Reference
+
+### Types
+
+```ts
+type ContentLanguage = 'sub' | 'dub' | 'raw';
+type MediaCatalogType = 'ANIME' | 'MOVIE' | 'TV' | 'MANGA' | 'LIVE_TV';
+
+interface IMediaSearchResult {
+  id: string;
+  title: string;
+  thumbnailUrl?: string;
+  catalogType: MediaCatalogType;
+  providerId: string;
+  availableLanguages?: ContentLanguage[];
+}
+
+interface IContentUnit {
+  id: string;
+  title: string;
+  number: number;
+  availableLanguages?: ContentLanguage[];
+  availableSubtitles?: ISubtitleAvailability[];
+  availableQualities?: IVideoPayload['quality'][];
+}
+
+interface ISubtitleAvailability {
+  language: string;
+  label: string;
+  format?: 'vtt' | 'srt' | 'ass';
+}
+
+interface ISubtitleTrack extends ISubtitleAvailability {
+  url: string;
+}
+
+interface IUnitTracks {
+  subtitles: ISubtitleTrack[];
+  qualities: IVideoPayload['quality'][];
+  headers?: Record<string, string>;
+}
+
+interface IVideoPayload {
+  sourceUrl: string;
+  isHLS: boolean;
+  quality: '1080p' | '720p' | '480p' | '360p' | 'auto';
+  language?: ContentLanguage;
+  headers?: Record<string, string>;
+  subtitles?: ISubtitleTrack[];
+}
+
+interface IMangaPayload {
+  imageUrls: string[];
+  headers?: Record<string, string>;
+}
+
+type ResolvedMediaStream =
+  | { type: 'video'; streams: IVideoPayload[] }
+  | { type: 'manga'; pages: IMangaPayload };
+
+interface SdkCache {
+  get(key: string): unknown | Promise<unknown>;
+  set(key: string, value: unknown): void | Promise<void>;
+}
+```
+
+### HttpClient
+
+```ts
+class HttpClient {
+  constructor(config?: {
+    timeoutMs?: number;      // default: 10000
+    proxyUrl?: string;
+    proxyType?: 'prepend' | 'query';
+    proxyQueryParam?: string;
+    defaultHeaders?: Record<string, string>;
+  });
+
+  get(url: string, options?: RequestInit): Promise<Response>;
+  post(url: string, body?: any, options?: RequestInit): Promise<Response>;
+  request(url: string, options?: RequestInit): Promise<Response>;
+  setCookie(name: string, value: string): void;
+  setUserAgent(userAgent: string): void;
+  getProxyUrl(): string | undefined;
+  requestUrl(url: string): string; // applies proxy rewriting
+}
+```
+
+Proxy modes:
+- `prepend`: `https://proxy.example.com/cdn.site.com/video.m3u8`
+- `query`: `https://proxy.example.com/fetch?url=https%3A%2F%2Fcdn.site.com%2Fvideo.m3u8`
+
+Auto curl fallback in Node: when `fetch` throws (timeout, TLS, anti-bot), retries via `child_process.execSync curl`. Callers see no difference.
+
+### BaseProvider
+
+```ts
+abstract class BaseProvider {
+  abstract readonly id: string;
+  abstract readonly supportedTypes: MediaCatalogType[];
+  abstract search(query: string): Promise<IMediaSearchResult[]>;
+  abstract fetchContentUnits(mediaId: string): Promise<IContentUnit[]>;
+  abstract resolveStream(unitId: string, language?: ContentLanguage): Promise<ResolvedMediaStream>;
+  fetchUnitTracks?(unitId: string, language?: ContentLanguage): Promise<IUnitTracks>;
+}
+```
+
+### BaseExtractor
+
+```ts
+abstract class BaseExtractor {
+  abstract readonly id: string;
+  abstract extract(embedUrl: string): Promise<IVideoPayload[]>;
+}
+```
+
+Always returns `[]` on failure; never throws.
+
+### Extractors
+
+**BloggerExtractor**: `googlevideo.com` MP4 from Blogger embeds via `batchexecute` RPC. Prefers `itag=22` (720p). URLs require `Referer: https://www.blogger.com/`.
+
+**Mp4UploadExtractor**: Direct MP4 from `mp4upload.com`. Parses `player.src({ src: "..." })`. URLs require `Referer: https://mp4upload.com/`.
+
+**GenericHlsExtractor**: Best-effort; scans embed page for `.m3u8` or `.mp4`. Returns `[]` if nothing matches.
+
+**VidstreamingExtractor**: Handles `vidstreaming.io` / `gogoplay` with AES-CBC decryption of `data-value`.
+
+### HlsUtils
+
+```ts
+class HlsUtils {
+  static rewriteManifest(manifestText: string, playlistUrl: string, httpClient: HttpClient): string;
+}
+```
+
+Rewrites every URI in `.m3u8` (chunk lines, `URI="..."` in `#EXT-X-KEY` / `#EXT-X-MAP`) to route through proxy.
+
+### DomRegistry
+
+```ts
+class DomRegistry {
+  static register(customParser: IDomParser): void;
+  static getParser(): IDomParser;
+  static parse(html: string): IDomElement;
+}
+```
+
+Global singleton. `linkedom` is registered automatically in Node environments; no setup needed.
+
+```ts
+interface IDomParser { parse(html: string): IDomElement; }
+interface IDomElement {
+  querySelector(selector: string): IDomElement | null;
+  querySelectorAll(selector: string): IDomElement[];
+  getAttribute(name: string): string | null;
+  readonly textContent: string | null;
+  readonly outerHTML: string;
+  readonly innerHTML: string;
+}
+```
+
+### startServer
+
+```ts
+function startServer(options: {
+  providers: BaseProvider[];
+  port?: number;
+  auth?: { token: string };
+  proxy?: boolean;
+  cache?: SdkCache;
+}): http.Server;
+```
+
+### Subtitle utilities
+
+```ts
+normalizeSubtitleEntries(entries: unknown): ISubtitleTrack[]
+proxifySubtitleUrl(proxyBase: string, track: ISubtitleTrack, options?: { headers?: Record<string, string>; contentType?: string }): string
+labelToBcp47(label: string): string
+```
+
+### Crypto utilities
+
+```ts
+aesDecrypt(ciphertextBase64: string, keyStr: string, ivStr: string): Promise<string>
+aesEncrypt(plaintext: string, keyStr: string, ivStr: string): Promise<string>
+sha256(text: string): Promise<Uint8Array>
+aesDecryptCtr(ciphertext: Uint8Array, key: Uint8Array, iv: Uint8Array): Promise<Uint8Array>
+```
+
+All use `globalThis.crypto.subtle` (Node 20+, modern browsers).
+
+### Low-level HLS/download helpers
+
+```ts
+parseHlsMaster(content: string, baseUrl: string): string[]
+parseHlsSegments(content: string, baseUrl: string): Array<{ url: string; duration: number }>
+detectImageExtension(contentType: string): string
+crc32(buf: Buffer): number
+createZipBuffer(entries: Array<{ filename: string; data: Buffer }>): Buffer
+```
+
+---
+
+## Contributing
+
+### Adding a provider
+
+1. Extend `BaseProvider`, set `id` and `supportedTypes`, accept `HttpClient` in constructor.
+2. Implement `search`, `fetchContentUnits`, `resolveStream`. Optionally implement `fetchUnitTracks`.
+3. All relative imports must use `.js` extension (`import { X } from './foo.js'`).
+4. Export from `src/index.ts`.
+5. Add a live E2E test using `captureStreamScreenshot` — no mocking, 90s timeout.
+
+```ts
+import { describe, it, expect } from 'vitest';
+import { HttpClient, MyProvider } from '../../src/index.js';
+import { captureStreamScreenshot } from './screenshotHelper.js';
+
+describe('MyProvider', () => {
+  it('resolves a stream and screenshots it', async () => {
+    const provider = new MyProvider(new HttpClient());
+    const shows = await provider.search('Frieren');
+    const eps   = await provider.fetchContentUnits(shows[0].id);
+    const result = await provider.resolveStream(eps[0].id);
+    expect(result.type).toBe('video');
+    if (result.type !== 'video') return;
+    const { outputPath } = await captureStreamScreenshot('myprovider', result.streams);
+    const { statSync } = await import('fs');
+    expect(statSync(outputPath).size).toBeGreaterThan(1024);
+  }, { timeout: 90_000 });
+});
+```
+
+### Adding an extractor
+
+Extend `BaseExtractor`. Always return `[]` on failure; never throw. Stay stateless.
+
+```ts
+class MyExtractor extends BaseExtractor {
+  public readonly id = 'myextractor';
+
+  static matches(url: string): boolean {
+    return /myembedhost\.com/i.test(url);
+  }
+
+  public async extract(embedUrl: string): Promise<IVideoPayload[]> {
+    const res = await this.http.get(embedUrl);
+    if (res.status !== 200) return [];
+    const html = await res.text();
+    const match = html.match(/"file"\s*:\s*"(https?:\/\/[^"]+\.m3u8)"/);
+    if (!match) return [];
+    return [{ sourceUrl: match[1], isHLS: true, quality: 'auto', headers: { Referer: embedUrl } }];
+  }
+}
+```
+
+### Running tests
+
+```sh
+npm run test:run           # full suite (unit + live E2E, ~60–90s)
+npx vitest run tests/e2e   # just E2E
+npx vitest run tests/e2e/myprovider.test.ts   # single provider
+npx vitest run -t "resolves a stream"          # by name pattern
+npm run build              # tsc → dist/
+```
+
+### What's out of scope
+
+- Browser/frontend support (SDK uses `child_process`, Node crypto)
+- UI components or players
+- Login-gated / paywall sites
+- CLI wrappers or download scripts
+- Mocked E2E tests (must hit live sites)
