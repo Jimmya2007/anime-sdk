@@ -3,7 +3,7 @@ import {
   startServer, 
   MegaPlayProvider, 
   AnikotoProvider, 
-  AnilistMeta,  // ← Changé ici (pas AnilistMetaProvider)
+  AnilistMeta,
   HttpClient 
 } from './dist/index.js';
 
@@ -15,7 +15,7 @@ startServer({
     new AnikotoProvider(new HttpClient({ timeoutMs: 15000 })),
   ],
   metaProviders: [
-    new AnilistMeta(new HttpClient({ timeoutMs: 15000 })), // ← Changé ici aussi
+    new AnilistMeta(new HttpClient({ timeoutMs: 15000 })),
   ],
   port: process.env.PORT || 3000,
   proxy: true,
@@ -25,4 +25,4 @@ startServer({
   },
 });
 
-console.log('anime-sdk server running!');
+console.log('✅ anime-sdk server running on port', process.env.PORT || 3000);
