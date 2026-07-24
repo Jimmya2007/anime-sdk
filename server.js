@@ -1,5 +1,11 @@
 // server.js
-import { startServer, MegaPlayProvider, AnikotoProvider, AnilistMetaProvider, HttpClient } from './dist/index.js';
+import { 
+  startServer, 
+  MegaPlayProvider, 
+  AnikotoProvider, 
+  AnilistMeta,  // ← Changé ici (pas AnilistMetaProvider)
+  HttpClient 
+} from './dist/index.js';
 
 const store = new Map();
 
@@ -8,9 +14,8 @@ startServer({
     new MegaPlayProvider(new HttpClient({ timeoutMs: 15000 })),
     new AnikotoProvider(new HttpClient({ timeoutMs: 15000 })),
   ],
-  // 🔥 AniList MetaProvider ajouté
   metaProviders: [
-    new AnilistMetaProvider(),
+    new AnilistMeta(new HttpClient({ timeoutMs: 15000 })), // ← Changé ici aussi
   ],
   port: process.env.PORT || 3000,
   proxy: true,
