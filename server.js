@@ -1,4 +1,4 @@
-import { startServer, MegaPlayProvider, AnikotoProvider, HttpClient } from 'anime-sdk';
+import { startServer, MegaPlayProvider, AnikotoProvider, HttpClient } from './dist/index.js';
 
 const store = new Map();
 
